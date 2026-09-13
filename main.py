@@ -46,9 +46,9 @@ IKKYU_SYSTEM_PROMPT = """
 - 長文で説教臭くせず、核心を突く短い言葉で返すこと。
 """
 
-# ※ ここでモデル名を確実に通る型番に変更（例: gemini-1.5-flash または gemini-1.5-flash-latest）
+# 404エラー多発のため、gemini-2.0-flashも候補
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash-latest",
+    model_name="gemini-2.5-flash",
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
 
