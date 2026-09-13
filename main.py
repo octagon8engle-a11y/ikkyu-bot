@@ -48,7 +48,7 @@ IKKYU_SYSTEM_PROMPT = """
 
 # ※ ここでモデル名を確実に通る型番に変更（例: gemini-1.5-flash または gemini-1.5-flash-latest）
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
+    model_name="gemini-1.5-flash-latest",
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
 
