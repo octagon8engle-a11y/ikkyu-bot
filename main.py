@@ -46,9 +46,9 @@ IKKYU_SYSTEM_PROMPT = """
 - 長文で説教臭くせず、核心を突く短い言葉で返すこと。
 """
 
-# 404エラー多発のため、gemini-2.0-flashも候補
+# 404エラー多発なので、いろいろmodelを試すことに
 model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
+    model_name="gemini-2.0-flash",
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
 
