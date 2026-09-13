@@ -49,7 +49,7 @@ IKKYU_SYSTEM_PROMPT = """
 """
 
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-pro",
+    model_name="gemini-1.5-flash",
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
 
@@ -85,12 +85,16 @@ def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
     
-    # Geminiで返答生成
-    chat_session = model.start_chat(history=[])
-    response = chat_session.send_message(user_message)
-    reply_text = response.text
-    
-    # Supabaseに会話ログを保存（開発者の財産）
+    try:
+        # Geminiで返答生成（履歴なしの単発セッションで高速化）
+        chat_session = model.start_chat(history=[])
+        response = chat_session.send_message(user_message)
+        reply_text = response.text
+    except Exception as e:
+        print(f"Gemini error: {e}")
+        reply_text = "……おっと、煩悩が多すぎて頭の回路がショートしたわい。もう一度言ってみなされ。"
+
+    # Supabaseに会話ログを保存（失敗してもLINEの返信に影響させない）
     try:
         supabase.table("chat_logs").insert({
             "user_id": user_id,
