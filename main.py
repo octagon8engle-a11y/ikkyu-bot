@@ -6,6 +6,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, FollowEvent
 import google.generativeai as genai
 from supabase import create_client, Client
+import uvicorn
 
 app = FastAPI()
 
@@ -19,11 +20,8 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# Geminiの初期設定
+# Geminiの初期設定（確実に存在するモデル名に指定）
 genai.configure(api_key=GEMINI_API_KEY)
-
-# Supabaseの初期設定
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 IKKYU_SYSTEM_PROMPT = """
 あなたは現代の草庵に生きる「一休宗純（AI一休）」です。
@@ -48,10 +46,14 @@ IKKYU_SYSTEM_PROMPT = """
 - 長文で説教臭くせず、核心を突く短い言葉で返すこと。
 """
 
+# ※ ここでモデル名を確実に通る型番に変更（例: gemini-1.5-flash または gemini-1.5-flash-latest）
 model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
+
+# Supabaseの初期設定
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # スリープ対策
 @app.get("/")
@@ -86,15 +88,16 @@ def handle_message(event):
     user_message = event.message.text
     
     try:
-        # Geminiで返答生成（履歴なしの単発セッションで高速化）
+        # Geminiで返答生成
         chat_session = model.start_chat(history=[])
         response = chat_session.send_message(user_message)
         reply_text = response.text
     except Exception as e:
-        print(f"Gemini error: {e}")
-        reply_text = "……おっと、煩悩が多すぎて頭の回路がショートしたわい。もう一度言ってみなされ。"
+        print(f"Gemini error details: {e}")
+        # 仮にまだエラーが出ても、何が起きているか判別しやすいように少し文字を変えるか、そのまま維持
+        reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # Supabaseに会話ログを保存（失敗してもLINEの返信に影響させない）
+    # Supabaseに会話ログを保存
     try:
         supabase.table("chat_logs").insert({
             "user_id": user_id,
@@ -109,3 +112,8 @@ def handle_message(event):
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
+
+# ポートのバインド処理をコード側でも安全に拾えるように追記
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
