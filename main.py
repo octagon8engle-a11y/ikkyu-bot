@@ -53,6 +53,11 @@ model = genai.GenerativeModel(
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
 
+# スリープ対策
+@app.get("/")
+async def root():
+    return {"status": "AI Ikkyu is awake"}
+
 @app.post("/callback")
 async def callback(request: Request):
     signature = request.headers.get("X-Line-Signature", "")
