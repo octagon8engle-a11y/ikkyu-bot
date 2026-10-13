@@ -1,3 +1,4 @@
+from datetime import datetime, timezone, timedelta
 import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -20,7 +21,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# Geminiの初期設定（確実に存在するモデル名に指定）
+# Geminiの初期設定
 genai.configure(api_key=GEMINI_API_KEY)
 
 IKKYU_SYSTEM_PROMPT = """
@@ -46,7 +47,6 @@ IKKYU_SYSTEM_PROMPT = """
 - 長文で説教臭くせず、核心を突く短い言葉で返すこと。
 """
 
-# 404エラー多発なので、いろいろmodelを試すことに
 model = genai.GenerativeModel(
     model_name="gemini-3.6-flash",
     system_instruction=IKKYU_SYSTEM_PROMPT
@@ -58,7 +58,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # スリープ対策
 @app.get("/")
 async def root():
-    return {"status": "AI Ikkyu is awake"}
+    return {"status": "AI Ikkyu Test Mode is awake"}
 
 @app.post("/callback")
 async def callback(request: Request):
@@ -87,34 +87,70 @@ def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
     
+    # 1. ロール判定の取得（未登録なら 'F'）
+    role = "F"
     try:
-        # Geminiで返答生成
+        user_resp = supabase.table("users").select("role").eq("user_id", user_id).execute()
+        if user_resp.data:
+            role = user_resp.data[0].get("role", "F")
+    except Exception as e:
+        print(f"Role fetch error: {e}")
+
+    # 2. admin 以外は 1日5回制限のチェックを実施
+    if role != "admin":
+        try:
+            # 日本時間の本日の開始時刻（00:00:00）を算出し、UTCに変換して比較
+            jst = timezone(timedelta(hours=9))
+            now_jst = datetime.now(jst)
+            today_start_jst = now_jst.replace(hour=0, minute=0, second=0, microsecond=0)
+            today_start_utc = today_start_jst.astimezone(timezone.utc).isoformat()
+
+            # テスト用テーブル（chat_logs_test）から本日分の利用回数をカウント
+            count_resp = supabase.table("chat_logs_test") \
+                .select("id", count="exact") \
+                .eq("user_id", user_id) \
+                .gte("created_at", today_start_utc) \
+                .execute()
+            
+            today_count = count_resp.count or 0
+
+            if today_count >= 5:
+                limit_message = "本日の利用制限（5回）に達したわい。\n午前0時（日本時間）になればリセットされるから、また明日来なされ。"
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=limit_message)
+                )
+                return
+        except Exception as e:
+            print(f"Limit check error: {e}")
+
+    # 3. Geminiで返答生成
+    try:
         chat_session = model.start_chat(history=[])
         response = chat_session.send_message(user_message)
         reply_text = response.text
     except Exception as e:
         print(f"Gemini error details: {e}")
-        # 仮にまだエラーが出ても、何が起きているか判別しやすいように少し文字を変えるか、そのまま維持
         reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # Supabaseに会話ログとロールを保存（テスト用テーブルを使用）
+    # 4. テスト用テーブル（chat_logs_test）に会話ログを保存
     try:
-      supabase.table("chat_logs_test").insert({
-          "user_id": user_id,
-          "user_message": user_message,
-          "bot_reply": reply_text,
-          "role": role,
-      }).execute()
+        supabase.table("chat_logs_test").insert({
+            "user_id": user_id,
+            "user_message": user_message,
+            "bot_reply": reply_text,
+            "role": role
+        }).execute()
     except Exception as e:
-      print(f"Database error: {e}")
+        print(f"Database error: {e}")
     
-    # LINEへ返信
+    # 5. LINEへ返信
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
 
-# ポートのバインド処理をコード側でも安全に拾えるように追記
+# ポートのバインド処理
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run("main_v1_1:app", host="0.0.0.0", port=port)
