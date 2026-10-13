@@ -97,15 +97,16 @@ def handle_message(event):
         # 仮にまだエラーが出ても、何が起きているか判別しやすいように少し文字を変えるか、そのまま維持
         reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # Supabaseに会話ログを保存
+    # Supabaseに会話ログとロールを保存（テスト用テーブルを使用）
     try:
-        supabase.table("chat_logs").insert({
-            "user_id": user_id,
-            "user_message": user_message,
-            "bot_reply": reply_text
-        }).execute()
+      supabase.table("chat_logs_test").insert({
+          "user_id": user_id,
+          "user_message": user_message,
+          "bot_reply": reply_text,
+          "role": role,
+      }).execute()
     except Exception as e:
-        print(f"Database error: {e}")
+      print(f"Database error: {e}")
     
     # LINEへ返信
     line_bot_api.reply_message(
