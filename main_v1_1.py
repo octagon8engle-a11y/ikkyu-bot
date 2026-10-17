@@ -111,14 +111,16 @@ def handle_message(event):
         print(f"Gemini error details: {e}")
         reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # 4. ログの保存先はテスト用（chat_logs_test）に保存（日本時間のcreated_atを明示的にセット）
+    from time_utils import get_current_jst_str
+
+　　# 4. ログの保存先（chat_logs_test）に日本時間の文字列をそのまま保存
     try:
         supabase.table("chat_logs_test").insert({
             "user_id": user_id,
             "user_message": user_message,
             "bot_reply": reply_text,
             "role": role,
-            "created_at": get_current_jst_iso()  # ← ここに日本時間をしっかり入れました！
+            "created_at": get_current_jst_str()  # ← JSTの文字列をそのままドカンと入れる
         }).execute()
     except Exception as e:
         print(f"Database error: {e}")
