@@ -1,9 +1,9 @@
 from datetime import datetime, timezone, timedelta
 
-def get_current_jst_iso() -> str:
+def get_current_jst_str() -> str:
     """
-    日本時間の現在時刻をISOフォーマット（タイムゾーン付き）で取得する。
-    例: '2026-10-17T22:49:00+09:00'
+    データベース（text型）にそのまま保存するための、
+    日本時間の「YYYY-MM-DD HH:MM:SS」形式の文字列を返す。
     """
     jst = timezone(timedelta(hours=9))
-    return datetime.now(jst).isoformat()
+    return datetime.now(jst).strftime('%Y-%m-%d %H:%M:%S')
