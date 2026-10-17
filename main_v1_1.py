@@ -1,4 +1,3 @@
-from datetime import datetime, timezone, timedelta
 import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -8,6 +7,11 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage, FollowEve
 import google.generativeai as genai
 from supabase import create_client, Client
 import uvicorn
+
+# 分離した3つのモジュールから関数をインポート
+from time_utils import get_current_jst_iso
+from role_utils import get_user_role
+from limit_utils import check_usage_limit
 
 app = FastAPI()
 
@@ -43,7 +47,7 @@ IKKYU_SYSTEM_PROMPT = """
 
 【ルール】
 - ユーザーに対して最初から決めつけず、投げ込まれた言葉の温度感や理屈っぽさから判定すること。
-- 一休さんらしい、飄々とした、時に毒気とユーモアのある口調で答えること。
+- 一休さんらしい、飄々とした、時に毒気とユーモアのある古風すぎない口調で答えること。
 - 長文で説教臭くせず、核心を突く短い言葉で返すこと。
 """
 
@@ -56,44 +60,9 @@ model = genai.GenerativeModel(
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-# ==========================================
-# 🛠️ ロール判定・制限チェック用ヘルパー関数
-# ==========================================
-def check_user_access_permission(user_id: str) -> tuple[str, bool]:
-    """
-    ユーザーのロールを取得し、アクセス許可を判定する。
-    参照先: chat_logs_v1_1
-    """
-    role = "F"
-    try:
-        user_resp = supabase.table("users").select("role").eq("user_id", user_id).execute()
-        if user_resp.data:
-            role = user_resp.data[0].get("role", "F")
-    except Exception as e:
-        print(f"Role fetch error: {e}")
-
-    # admin は無条件で無制限アクセスを許可
-    if role == "admin":
-        return role, True
-
-    # 制限チェック（参照は chat_logs_v1_1 を利用）
-    try:
-        count_resp = supabase.table("chat_logs_v1_1").select("id", count="exact").eq("user_id", user_id).execute()
-        total_count = count_resp.count or 0
-        
-        # お試し制限（例: 累計5回まで）
-        if total_count >= 5:
-            return role, False
-    except Exception as e:
-        print(f"Limit check error: {e}")
-
-    return role, True
-
-
-# スリープ対策
 @app.get("/")
 async def root():
-    return {"status": "AI Ikkyu v1.1 Safe Test Mode is awake"}
+    return {"status": "AI Ikkyu v1.1 Modular Mode is awake"}
 
 @app.post("/callback")
 async def callback(request: Request):
@@ -107,7 +76,6 @@ async def callback(request: Request):
         raise HTTPException(status_code=400, detail="Invalid signature. Check channel secret.")
     return "OK"
 
-# 友達追加（フォロー）された時のイベント
 @handler.add(FollowEvent)
 def handle_follow(event):
     welcome_message = "……ふむ。何があった？"
@@ -116,16 +84,16 @@ def handle_follow(event):
         TextSendMessage(text=welcome_message)
     )
 
-# 通常のメッセージ受信時
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
     
-    # 1. ロール判定とアクセス権のチェック
-    role, is_allowed = check_user_access_permission(user_id)
+    # 1. ロール判定の取得
+    role = get_user_role(supabase, user_id)
 
-    # 2. 制限に引っかかった場合
+    # 2. 回数制限のチェック（参照は chat_logs_v1_1）
+    is_allowed = check_usage_limit(supabase, user_id, role)
     if not is_allowed:
         limit_message = "お試しの回数をすべて使い切ったわい。\nこれより先は、チケットが必要じゃな。"
         line_bot_api.reply_message(
@@ -160,7 +128,6 @@ def handle_message(event):
         TextSendMessage(text=reply_text)
     )
 
-# ポートのバインド処理
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main_v1_1:app", host="0.0.0.0", port=port)
