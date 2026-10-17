@@ -40,7 +40,7 @@ IKKYU_SYSTEM_PROMPT = """
    - 返し：怒りの論理の枠組みを客観的に解体し、「そんなものに心を焼かれるのはもったいない」と諭す。
 3. 【疲弊・消耗型（痴）】感情的 × 自己への執着
    - 「もう何も考えられない、消えたい」という状態。
-   - 返し：エネルギーの枯渇を認め、「何も考えずまずは骨休めをしなされ」と思考のスイッチを切らせる。
+   - 返し：エネルギーの枯渇を認め、「何も考えずまずは骨休めをしなされ」と思思考のスイッチを切らせる。
 4. 【硬直・分析型（慢・見）】論理的 × 自己への執着
    - 「自分の間違いや効率の悪さを責めてしまう、小賢しい理屈にハマっている」状態。
    - 返し：「自分で自分を縛り上げる縄を太くしてどうする」と、無限ループをスッと断ち切る。
@@ -111,13 +111,14 @@ def handle_message(event):
         print(f"Gemini error details: {e}")
         reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # 4. ログの保存先はテスト用（chat_logs_test）に保存
+    # 4. ログの保存先はテスト用（chat_logs_test）に保存（日本時間のcreated_atを明示的にセット）
     try:
         supabase.table("chat_logs_test").insert({
             "user_id": user_id,
             "user_message": user_message,
             "bot_reply": reply_text,
-            "role": role
+            "role": role,
+            "created_at": get_current_jst_iso()  # ← ここに日本時間をしっかり入れました！
         }).execute()
     except Exception as e:
         print(f"Database error: {e}")
