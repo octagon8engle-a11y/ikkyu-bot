@@ -1,16 +1,18 @@
-# 最低限の referrer_tracker.py（これで十分機能します）
+# referrer_tracker.py の中身
 from typing import Optional
 
-def extract_referrer_id(text_or_params: str) -> Optional[str]:
-    """
-    メッセージ本文やパラメータから紹介者ID(?ref=xxx や ref_xxx)を抽出
-    """
-    if "ref=" in text_or_params:
-        return text_or_params.split("ref=")[-1].strip()
-    return None
+def extract_referrer_id(query_params: dict) -> Optional[str]:
+    """URLパラメータ等から紹介者ID(?ref=xxx)を抽出"""
+    return query_params.get("ref", None)
 
-def build_share_link(user_id: str, base_url: str = "https://line.me/R/oaMessage/@your_bot_id/") -> str:
-    """
-    ユーザー専用の紹介用リンクを生成
-    """
-    return f"{base_url}?ref={user_id}"
+def register_user_with_referrer(supabase_client, user_id: str, referrer_id: Optional[str] = None):
+    """users_v1_2テーブルにユーザーを登録（すでに存在する場合はスキップ）"""
+    try:
+        existing = supabase_client.table("users_v1_2").select("user_id").eq("user_id", user_id).execute()
+        if not existing.data:
+            supabase_client.table("users_v1_2").insert({
+                "user_id": user_id,
+                "referrer_id": referrer_id
+            }).execute()
+    except Exception as e:
+        print(f"User registration error: {e}")
