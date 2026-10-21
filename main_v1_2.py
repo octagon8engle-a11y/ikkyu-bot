@@ -14,14 +14,15 @@ from time_utils import get_current_jst_str
 from role_utils import get_user_role
 from limit_utils import check_usage_limit
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
+
+app = FastAPI()
+
 # main_v1_2.py
 from stripe_utils import handle_stripe_webhook
 
 @app.post("/stripe-webhook")
 async def stripe_webhook_endpoint(request: Request):
     return await handle_stripe_webhook(request, supabase)
-
-app = FastAPI()
 
 # 環境変数からの読み込み
 LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN")
