@@ -1,3 +1,14 @@
+# stripe_utils.py の先頭に追加
+import os
+import stripe
+from fastapi import Request, HTTPException
+from remaining_chats import add_user_paid_chats
+
+STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5")
+STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10")
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+
 # stripe_utils.py に追加する Webhook 処理ロジックのイメージ
 import stripe
 from fastapi import Request, HTTPException, status
