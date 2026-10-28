@@ -5,6 +5,8 @@ from fastapi.concurrency import run_in_threadpool
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, FollowEvent
+import stripe
+from fastapi import Request, HTTPException, Header
 import google.generativeai as genai
 from supabase import create_client, Client
 import uvicorn
@@ -125,7 +127,27 @@ def handle_message(event):
             TextSendMessage(text=limit_message)
         )
         return
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
+@app.post("/stripe/webhook")
+async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
+    payload = await request.body()
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, stripe_signature, STRIPE_WEBHOOK_SECRET
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # 決済成功イベントを受け取ったときの処理
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        # ここでLINEのuser_id等を特定し、DBの残会話数を +5 や +10 加算する処理を実行！
+        print("お布施が確認されたぞい！")
+
+    return {"status": "success"}
+    
     # 3. Geminiで返答生成
     try:
         chat_session = model.start_chat(history=[])
