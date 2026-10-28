@@ -11,9 +11,10 @@ import uvicorn
 
 # 分離したモジュールからインポート（referrer_trackerも追加）
 from time_utils import get_current_jst_str
-from ikkyu_messages import get_random_payment_message
+from role_utils import get_user_role
 from limit_utils import check_usage_limit
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
+from stripe_utils import handle_stripe_webhook
 
 app = FastAPI()
 
@@ -30,6 +31,10 @@ LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# Stripeの決済リンク（Renderの環境変数から取得）
+STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_550")
+STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "https://buy.stripe.com/test_990")
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
