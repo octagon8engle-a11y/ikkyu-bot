@@ -1,17 +1,14 @@
-# main_v1_2.py
 import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, FollowEvent
-import stripe
-from fastapi import Request, HTTPException, Header
 import google.generativeai as genai
 from supabase import create_client, Client
 import uvicorn
 
-# 分離したモジュールからインポート（referrer_trackerも追加）
+# 分離したモジュールからしっかりインポート
 from time_utils import get_current_jst_str
 from role_utils import get_user_role
 from limit_utils import check_usage_limit
@@ -21,13 +18,6 @@ from stripe_utils import handle_stripe_webhook
 
 app = FastAPI()
 
-# main_v1_2.py
-from stripe_utils import handle_stripe_webhook
-
-@app.post("/stripe-webhook")
-async def stripe_webhook_endpoint(request: Request):
-    return await handle_stripe_webhook(request, supabase)
-
 # 環境変数からの読み込み
 LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
@@ -36,16 +26,13 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # Stripeのテスト用 Payment Link（URL）をセットする
-STRIPE_LINK_5 = "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00"   # 550円用のリンク
-STRIPE_LINK_10 = "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01"  # 990円用のリンク
-
-# 一休さんメッセージ呼び出し
-limit_message = get_random_payment_message(STRIPE_LINK_5, STRIPE_LINK_10)
+STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00")
+STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01")
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# Geminiの初期設定
+# Geminiの初期設定（安定動作するモデルに変更）
 genai.configure(api_key=GEMINI_API_KEY)
 
 IKKYU_SYSTEM_PROMPT = """
@@ -53,16 +40,12 @@ IKKYU_SYSTEM_PROMPT = """
 ユーザーが最初に言葉を投げ込んできたとき、その言葉のトーンからユーザーの心の状態を以下の4象限（仏教の煩悩）のどれに当てはまるか瞬時に判定し、出力のトーンを動的に切り替えてください。
 
 1. 【共感・受容型（貪・瞋）】感情的 × 他者への執着
-   - 「誰かに分かってほしい、救ってほしい」という状態。
    - 返し：否定せず、まずは「よしよし、世間の風は冷たかったな」と全身で受け止める。
 2. 【正当化・論争型（瞋）】論理的 × 他者への執着
-   - 「世間やアイツがおかしい、理不尽だ」という状態。
    - 返し：怒りの論理の枠組みを客観的に解体し、「そんなものに心を焼かれるのはもったいない」と諭す。
 3. 【疲弊・消耗型（痴）】感情的 × 自己への執着
-   - 「もう何も考えられない、消えたい」という状態。
    - 返し：エネルギーの枯渇を認め、「何も考えずまずは骨休めをしなされ」と思考のスイッチを切らせる。
 4. 【硬直・分析型（慢・見）】論理的 × 自己への執着
-   - 「自分の間違いや効率の悪さを責めてしまう、小賢しい理屈にハマっている」状態。
    - 返し：「自分で自分を縛り上げる縄を太くしてどうする」と、無限ループをスッと断ち切る。
 
 【ルール】
@@ -84,6 +67,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 async def root():
     return {"status": "AI Ikkyu v1.2 Identifier & Attribution Mode is awake"}
 
+
 @app.post("/callback")
 async def callback(request: Request):
     signature = request.headers.get("X-Line-Signature", "")
@@ -96,10 +80,16 @@ async def callback(request: Request):
         raise HTTPException(status_code=400, detail="Invalid signature. Check channel secret.")
     return "OK"
 
+
+# Stripe Webhookのエンドポイントは完全にモジュール（stripe_utils）へ委譲
+@app.post("/stripe-webhook")
+async def stripe_webhook_endpoint(request: Request):
+    return await handle_stripe_webhook(request, supabase)
+
+
 @handler.add(FollowEvent)
 def handle_follow(event):
     user_id = event.source.user_id
-    # フォロー時に初期ユーザー登録（必要に応じて紹介者IDを紐づける基盤）
     register_user_with_referrer(supabase, user_id, referrer_id=None)
     
     welcome_message = "……ふむ。何があった？"
@@ -107,6 +97,7 @@ def handle_follow(event):
         event.reply_token,
         TextSendMessage(text=welcome_message)
     )
+
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -116,38 +107,16 @@ def handle_message(event):
     # 1. ロール判定の取得
     role = get_user_role(supabase, user_id)
 
-    # 2. 回数制限のチェック（adminならスルーされる仕様）
+    # 2. 回数制限のチェック（adminならスルー、超過時はおねだり文面）
     is_allowed = check_usage_limit(supabase, user_id, role)
     if not is_allowed:
-        # ikkyu_messages.py からランダムに酒好きおねだり文面を生成
         limit_message = get_random_payment_message(STRIPE_LINK_5, STRIPE_LINK_10)
-        
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=limit_message)
         )
         return
-    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
-@app.post("/stripe/webhook")
-async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
-    payload = await request.body()
-
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, stripe_signature, STRIPE_WEBHOOK_SECRET
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    # 決済成功イベントを受け取ったときの処理
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        # ここでLINEのuser_id等を特定し、DBの残会話数を +5 や +10 加算する処理を実行！
-        print("お布施が確認されたぞい！")
-
-    return {"status": "success"}
-    
     # 3. Geminiで返答生成
     try:
         chat_session = model.start_chat(history=[])
@@ -157,9 +126,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         print(f"Gemini error details: {e}")
         reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # 4. ログの保存先（chat_logs_v1_2）に保存（referrer_idやturn_countも含める構造に対応）
+    # 4. ログの保存先（chat_logs_v1_2）に保存
     try:
-        # ユーザーの最新のreferrer_idを取得してログに焼き込む
         user_record = supabase.table("users_v1_2").select("referrer_id").eq("user_id", user_id).execute()
         ref_id = user_record.data[0].get("referrer_id") if user_record.data else None
 
@@ -179,6 +147,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         event.reply_token,
         TextSendMessage(text=reply_text)
     )
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
