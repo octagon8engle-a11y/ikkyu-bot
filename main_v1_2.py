@@ -11,6 +11,7 @@ import uvicorn
 
 # 分離したモジュールからインポート（referrer_trackerも追加）
 from time_utils import get_current_jst_str
+from role_utils import get_user_role
 from limit_utils import check_usage_limit
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
 from stripe_utils import handle_stripe_webhook
