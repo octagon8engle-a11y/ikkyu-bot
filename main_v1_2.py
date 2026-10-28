@@ -33,9 +33,12 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Stripeの決済リンク（Renderの環境変数から取得）
-STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_550")
-STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "https://buy.stripe.com/test_990")
+# Stripeのテスト用 Payment Link（URL）をセットする
+STRIPE_LINK_5 = "https://buy.stripe.com/test_xxxxxx"   # 550円用のリンク
+STRIPE_LINK_10 = "https://buy.stripe.com/test_yyyyyy"  # 990円用のリンク
+
+# 一休さんメッセージ呼び出し
+limit_message = get_random_payment_message(STRIPE_LINK_5, STRIPE_LINK_10)
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
