@@ -34,8 +34,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # Stripeのテスト用 Payment Link（URL）をセットする
-STRIPE_LINK_5 = "https://buy.stripe.com/test_xxxxxx"   # 550円用のリンク
-STRIPE_LINK_10 = "https://buy.stripe.com/test_yyyyyy"  # 990円用のリンク
+STRIPE_LINK_5 = "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00"   # 550円用のリンク
+STRIPE_LINK_10 = "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01"  # 990円用のリンク
 
 # 一休さんメッセージ呼び出し
 limit_message = get_random_payment_message(STRIPE_LINK_5, STRIPE_LINK_10)
