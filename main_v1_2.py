@@ -114,7 +114,7 @@ def handle_message(event):
     # 1. ロール判定の取得
     role = get_user_role(supabase, user_id)
 
-     # 2. 回数制限のチェック（adminならスルーされる仕様）
+    # 2. 回数制限のチェック（adminならスルーされる仕様）
     is_allowed = check_usage_limit(supabase, user_id, role)
     if not is_allowed:
         # ikkyu_messages.py からランダムに酒好きおねだり文面を生成
