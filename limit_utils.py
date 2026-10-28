@@ -7,7 +7,7 @@ def check_usage_limit(supabase: Client, user_id: str, role: str) -> bool:
     許可される場合は True、制限に達している場合は False を返す。
     """
     if role == "admin":
-        return False
+        return True
     
     try:
         count_resp = supabase.table("chat_logs_v1_1").select("id", count="exact").eq("user_id", user_id).execute()
