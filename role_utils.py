@@ -8,4 +8,4 @@ def get_user_role(supabase: Client, user_id: str) -> str:
             return user_resp.data[0].get("role", "visitor")
     except Exception as e:
         print(f"Role fetch error: {e}")
-    return "F"
+    return "visitor"
