@@ -105,10 +105,12 @@ def handle_message(event):
     # 1. ロール判定の取得
     role = get_user_role(supabase, user_id)
 
-    # 2. 回数制限のチェック
+     # 2. 回数制限のチェック（adminならスルーされる仕様）
     is_allowed = check_usage_limit(supabase, user_id, role)
     if not is_allowed:
-        limit_message = "お試しの回数をすべて使い切ったわい。\nこれより先は、チケットが必要じゃな。"
+        # ikkyu_messages.py からランダムに酒好きおねだり文面を生成
+        limit_message = get_random_payment_message(STRIPE_LINK_5, STRIPE_LINK_10)
+        
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=limit_message)
