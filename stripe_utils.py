@@ -20,30 +20,34 @@ def get_payment_message(user_id: str) -> str:
 
 def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     """
-    【即時課金切り替え版】
+    【テスト・本番対応版】
     - admin: 無制限
-    - tester: 残数0扱い（無条件でお布施案内へ放り込む）
-    - その他: 通常のDB参照（無料5回 + 購入分）
+    - tester: 即お布施（決済リンク）へ強制送還
+    - その他: users テーブルの count と paid_chats を参照して判定
     """
     if role == "admin":
         return True, None
 
-    # tester は問答無用で残数0扱い（即お布施リンクへ）
+    # テスト中につき tester は即座にお布施案内へ放り込む
     if role == "tester":
         return False, get_payment_message(user_id)
 
     try:
-        # 一般ユーザー用の通常判定
-        user_resp = supabase_client.table("users_v1_2").select("count, paid_chats").eq("user_id", user_id).execute()
+        # users テーブルから count と paid_chats を取得
+        user_resp = supabase_client.table("users").select("count, paid_chats").eq("user_id", user_id).execute()
+        
         if user_resp.data and len(user_resp.data) > 0:
             user_data = user_resp.data[0]
             current_count = user_data.get("count", 0) or 0
             paid_chats = user_data.get("paid_chats", 0) or 0
 
-            if current_count >= (5 + paid_chats):
+            # 無料枠（5回）＋ 購入済み追加枠 が上限
+            max_allowed = 5 + paid_chats
+
+            if current_count >= max_allowed:
                 return False, get_payment_message(user_id)
         else:
-            # レコードなし＝初回扱いなら通す
+            # レコードがない場合は初回扱いとして通す
             pass
 
     except Exception as e:
