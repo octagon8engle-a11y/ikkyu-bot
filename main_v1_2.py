@@ -10,6 +10,7 @@ import uvicorn
 
 # 分離したモジュールから必要なものだけインポート
 from time_utils import get_current_jst_str
+from limit_utils import check_usage_limit
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
 from stripe_utils import handle_stripe_webhook
 
