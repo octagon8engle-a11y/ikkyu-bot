@@ -20,17 +20,12 @@ def get_payment_message(user_id: str) -> str:
 
 def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     """
-    【テスト・本番対応版】
+    【通常回数制限モード】
     - admin: 無制限
-    - tester: 即お布施（決済リンク）へ強制送還
-    - その他: users テーブルの count と paid_chats を参照して判定
+    - その他: users テーブルの count と paid_chats を参照し、無料5回＋購入分を超えたら制限
     """
     if role == "admin":
         return True, None
-
-    # テスト中につき tester は即座にお布施案内へ放り込む
-    if role == "tester":
-        return False, get_payment_message(user_id)
 
     try:
         # users テーブルから count と paid_chats を取得
