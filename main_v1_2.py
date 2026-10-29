@@ -8,7 +8,7 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import uvicorn
 
-# 分離したモジュールから必要なものだけインポート（limit/role系は除外）
+# 分離したモジュールから必要なものだけインポート
 from time_utils import get_current_jst_str
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
 from stripe_utils import handle_stripe_webhook
@@ -22,14 +22,14 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Stripeのテスト用 Payment Link（URL）をセットする
+# Stripeのテスト用 Payment Link（URL）のフォールバック
 STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00")
 STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01")
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# Geminiの初期設定
+# Geminiの初期設定（3.6固定）
 genai.configure(api_key=GEMINI_API_KEY)
 
 IKKYU_SYSTEM_PROMPT = """
@@ -78,12 +78,12 @@ async def callback(request: Request):
     return "OK"
 
 
-# Stripe Webhookエンドポイント（URL表記の揺れに対応するため2通り受けて同じ関数へ流す）
+# Stripe Webhookエンドポイント（決済成功時にline_bot_apiで通知を送るため渡す）
 @app.post("/stripe/webhook")
 @app.post("/stripe-webhook")
 async def stripe_webhook_endpoint(request: Request):
     print("--- [Stripe Webhook 受信] リクエストが届きました ---")
-    return await handle_stripe_webhook(request, supabase)
+    return await handle_stripe_webhook(request, supabase, line_bot_api)
 
 
 @handler.add(FollowEvent)
