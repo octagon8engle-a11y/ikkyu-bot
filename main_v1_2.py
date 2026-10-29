@@ -10,8 +10,6 @@ import uvicorn
 
 # 分離したモジュールからしっかりインポート
 from time_utils import get_current_jst_str
-from role_utils import get_user_role
-from limit_utils import check_usage_limit
 from ikkyu_messages import get_random_payment_message
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
 from stripe_utils import handle_stripe_webhook
@@ -103,9 +101,6 @@ def handle_follow(event):
 def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
-    
-    # 1. ロール判定の取得
-    role = get_user_role(supabase, user_id)
 
     # 2. 回数制限のチェック（adminならスルー、超過時はおねだり文面）
     is_allowed = check_usage_limit(supabase, user_id, role)
@@ -137,6 +132,7 @@ def handle_message(event):
             "bot_reply": reply_text,
             "role": role,
             "referrer_id": ref_id,
+            "count":
             "created_at": get_current_jst_str()
         }).execute()
     except Exception as e:
