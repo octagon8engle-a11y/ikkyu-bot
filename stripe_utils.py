@@ -6,7 +6,7 @@ from linebot.models import TextSendMessage
 from ikkyu_messages import get_random_payment_message
 from remaining_chats import add_user_paid_chats
 
-# フォールバック用リンク（環境変数未設定時への備え）
+# フォールバック用リンク
 STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00")
 STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01")
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -20,30 +20,31 @@ def get_payment_message(user_id: str) -> str:
 
 def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     """
-    【一般扱い統合版】利用制限チェック
-    - admin のみ無制限 (True, None)
-    - それ以外は一般扱いとし、無料枠(5回) + 有料追加枠を超えたら False とお布施メッセージを返す
+    【即時課金切り替え版】
+    - admin: 無制限
+    - tester: 残数0扱い（無条件でお布施案内へ放り込む）
+    - その他: 通常のDB参照（無料5回 + 購入分）
     """
     if role == "admin":
         return True, None
 
+    # tester は問答無用で残数0扱い（即お布施リンクへ）
+    if role == "tester":
+        return False, get_payment_message(user_id)
+
     try:
-        # 1. 過去の会話数を取得 (chat_logs_v1_2)
-        count_resp = supabase_client.table("chat_logs_v1_2").select("id", count="exact").eq("user_id", user_id).execute()
-        total_chats = count_resp.count or 0
-
-        # 2. 購入済みの追加回数を取得
-        user_resp = supabase_client.table("users_v1_2").select("paid_chats").eq("user_id", user_id).execute()
-        paid_chats = 0
+        # 一般ユーザー用の通常判定
+        user_resp = supabase_client.table("users_v1_2").select("count, paid_chats").eq("user_id", user_id).execute()
         if user_resp.data and len(user_resp.data) > 0:
-            paid_chats = user_resp.data[0].get("paid_chats", 0) or 0
+            user_data = user_resp.data[0]
+            current_count = user_data.get("count", 0) or 0
+            paid_chats = user_data.get("paid_chats", 0) or 0
 
-        # 無料5回 ＋ 購入分が上限
-        max_allowed = 5 + paid_chats
-
-        if total_chats >= max_allowed:
-            # 上限到達：stripe_utils の機能で client_reference_id 付きリンクを生成
-            return False, get_payment_message(user_id)
+            if current_count >= (5 + paid_chats):
+                return False, get_payment_message(user_id)
+        else:
+            # レコードなし＝初回扱いなら通す
+            pass
 
     except Exception as e:
         print(f"Limit check error: {e}")
@@ -51,7 +52,7 @@ def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     return True, None
 
 async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=None):
-    """Stripeの決済成功Webhook処理＆回数加算・LINEプッシュ通知"""
+    """Stripe決済成功時のWebhook処理＆回数加算・LINEプッシュ通知"""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
