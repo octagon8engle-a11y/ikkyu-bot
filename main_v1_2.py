@@ -8,9 +8,8 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import uvicorn
 
-# 分離したモジュールからしっかりインポート
+# 分離したモジュールから必要なものだけインポート（limit/role系は除外）
 from time_utils import get_current_jst_str
-from ikkyu_messages import get_random_payment_message
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
 from stripe_utils import handle_stripe_webhook
 
@@ -23,14 +22,10 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Stripeのテスト用 Payment Link（URL）をセットする
-STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00")
-STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01")
-
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# Geminiの初期設定（安定動作するモデルに変更）
+# Geminiの初期設定
 genai.configure(api_key=GEMINI_API_KEY)
 
 IKKYU_SYSTEM_PROMPT = """
@@ -42,7 +37,7 @@ IKKYU_SYSTEM_PROMPT = """
 2. 【正当化・論争型（瞋）】論理的 × 他者への執着
    - 返し：怒りの論理の枠組みを客観的に解体し、「そんなものに心を焼かれるのはもったいない」と諭す。
 3. 【疲弊・消耗型（痴）】感情的 × 自己への執着
-   - 返し：エネルギーの枯渇を認め、「何も考えずまずは骨休めをしなされ」と思考のスイッチを切らせる。
+   - 返し：エネルギーの枯渇を認め、「何も考えずまずは骨休めをしなされ」と思思考のスイッチを切らせる。
 4. 【硬直・分析型（慢・見）】論理的 × 自己への執着
    - 返し：「自分で自分を縛り上げる縄を太くしてどうする」と、無限ループをスッと断ち切る。
 
@@ -63,7 +58,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.get("/")
 async def root():
-    return {"status": "AI Ikkyu v1.2 Identifier & Attribution Mode is awake"}
+    return {"status": "AI Ikkyu v1.2 Tester Mode (Unlimited) is awake"}
 
 
 @app.post("/callback")
@@ -79,9 +74,11 @@ async def callback(request: Request):
     return "OK"
 
 
-# Stripe Webhookのエンドポイントは完全にモジュール（stripe_utils）へ委譲
+# Stripe Webhookエンドポイント（URL表記の揺れに対応するため2通り受けて同じ関数へ流す）
+@app.post("/stripe/webhook")
 @app.post("/stripe-webhook")
 async def stripe_webhook_endpoint(request: Request):
+    print("--- [Stripe Webhook 受信] リクエストが届きました ---")
     return await handle_stripe_webhook(request, supabase)
 
 
@@ -101,18 +98,10 @@ def handle_follow(event):
 def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
+    
+    # ※テスト中につきロール判定および回数制限チェックはスキップ（全員無制限）
 
-    # 2. 回数制限のチェック（adminならスルー、超過時はおねだり文面）
-    is_allowed = check_usage_limit(supabase, user_id, role)
-    if not is_allowed:
-        limit_message = get_random_payment_message(STRIPE_LINK_5, STRIPE_LINK_10)
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=limit_message)
-        )
-        return
-
-    # 3. Geminiで返答生成
+    # 1. Geminiで返答生成
     try:
         chat_session = model.start_chat(history=[])
         response = chat_session.send_message(user_message)
@@ -121,7 +110,7 @@ def handle_message(event):
         print(f"Gemini error details: {e}")
         reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # 4. ログの保存先（chat_logs_v1_2）に保存
+    # 2. ログの保存（testerとして保存）
     try:
         user_record = supabase.table("users_v1_2").select("referrer_id").eq("user_id", user_id).execute()
         ref_id = user_record.data[0].get("referrer_id") if user_record.data else None
@@ -130,15 +119,14 @@ def handle_message(event):
             "user_id": user_id,
             "user_message": user_message,
             "bot_reply": reply_text,
-            "role": role,
+            "role": "tester",
             "referrer_id": ref_id,
-            "count":
             "created_at": get_current_jst_str()
         }).execute()
     except Exception as e:
         print(f"Database error: {e}")
     
-    # 5. LINEへ返信
+    # 3. LINEへ返信
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
