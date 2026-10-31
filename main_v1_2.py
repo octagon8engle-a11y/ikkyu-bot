@@ -104,7 +104,6 @@ can_proceed, payment_msg, remaining_before = check_usage_limit_and_get_payment(s
 if not can_proceed:
     # 残り0回ならお布施案内を返す
     line_bot_api.reply_message(reply_token, TextSendMessage(text=payment_msg))
-    return
 
 # 2. 一休さんのAI回答生成 & chat_logs_v1_2 にログ保存
 ikkyu_reply_text = generate_ikkyu_response(...) 
