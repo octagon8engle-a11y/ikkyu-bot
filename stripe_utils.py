@@ -6,17 +6,28 @@ from linebot.models import TextSendMessage
 from ikkyu_messages import get_random_payment_message
 from time_utils import get_current_jst_str
 
-# フォールバック用リンク
-STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00")
-STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01")
+# 正しいStripeテスト決済URL
+STRIPE_LINK_5 = "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00"
+STRIPE_LINK_10 = "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01"
+
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 def get_payment_message(user_id: str) -> str:
-    """ユーザーID（client_reference_id）を付与したお布施案内文を生成"""
+    """ユーザーID（client_reference_id）を付与したお布施案内文を生成（商品IDは含めない）"""
     url_5 = f"{STRIPE_LINK_5}?client_reference_id={user_id}"
     url_10 = f"{STRIPE_LINK_10}?client_reference_id={user_id}"
-    return get_random_payment_message(url_5, url_10)
+    
+    # 一休さんらしい口上で綺麗にURLだけを案内するメッセージ
+    return (
+        "実のところ、このお寺の和尚は厳しくてのう。説法の間の一杯やるのも命がけじゃ。\n"
+        "寺の裏でこっそり一杯やるための「秘密の資金」が、ちと足りなくなってしもうた。\n\n"
+        "なぁに、和尚には内緒にしておくから、お前さんからこっそりお布施を頼めんか？\n\n"
+        "🍶 **お布施のお品書き**\n"
+        f"・ **【5回券】550円**（和尚に内緒の隠し酒代じゃ）\n{url_5}\n\n"
+        f"・ **【10回券】990円**（上等なつまみで機嫌が良くなるぞ）\n{url_10}\n\n"
+        "銭を包んでくれたら、秘密の極意を授けてやろう！"
+    )
 
 def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     """
