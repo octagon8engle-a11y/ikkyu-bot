@@ -87,12 +87,11 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
             try:
                 supabase_client.table("stripe_transactions_test").insert({
                     "user_id": user_id,
-                    "session_id": session_id,
+                    "stripe_id": session_id,  # session_id ではなく stripe_id に格納！
                     "amount": amount_total,
-                    "add_count": add_count,
                     "created_at": get_current_jst_str()
                 }).execute()
-                print(f"stripe_transactions_test に記録完了: Session {session_id}")
+                print(f"stripe_transactions_test に記録完了: Stripe ID {session_id}")
             except Exception as db_err:
                 print(f"DB transaction log error: {db_err}")
 
