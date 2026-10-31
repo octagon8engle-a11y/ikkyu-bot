@@ -123,15 +123,20 @@ def handle_message(event):
         print(f"Gemini error details: {e}")
         reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # 4. 会話ログの保存（現存する chat_logs_v1_2 テーブルに直接保存）
+    # 4. 会話ログの保存（chat_logs_v1_2 テストテーブル）
     try:
+        # ユーザーのこれまでの発言回数（ログの件数など）をカウントして turn_count とする
+        count_resp = supabase.table("chat_logs_v1_2").select("id", count="exact").eq("user_id", user_id).execute()
+        current_turn = (count_resp.count or 0) + 1
+
         supabase.table("chat_logs_v1_2").insert({
             "user_id": user_id,
             "user_message": user_message,
             "bot_reply": reply_text,
+            "turn_count": current_turn,  # ← ここに正確なターン数（残数や回数）を格納！
             "created_at": get_current_jst_str()
         }).execute()
-        print(f"DEBUG: chat_logs_v1_2 へのログ保存成功 (User: {user_id})")
+        print(f"DEBUG: chat_logs_v1_2 へのログ保存成功 (User: {user_id}, turn_count: {current_turn})")
     except Exception as e:
         print(f"Database error (chat_logs_v1_2): {e}")
     
