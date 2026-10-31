@@ -14,20 +14,12 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 def get_payment_message(user_id: str) -> str:
-    """ユーザーID（client_reference_id）を付与したお布施案内文を生成（商品IDは含めない）"""
+    """ユーザーID（client_reference_id）を付与したお布施案内文を生成"""
     url_5 = f"{STRIPE_LINK_5}?client_reference_id={user_id}"
     url_10 = f"{STRIPE_LINK_10}?client_reference_id={user_id}"
     
-    # 一休さんらしい口上で綺麗にURLだけを案内するメッセージ
-    return (
-        "実のところ、このお寺の和尚は厳しくてのう。説法の間の一杯やるのも命がけじゃ。\n"
-        "寺の裏でこっそり一杯やるための「秘密の資金」が、ちと足りなくなってしもうた。\n\n"
-        "なぁに、和尚には内緒にしておくから、お前さんからこっそりお布施を頼めんか？\n\n"
-        "🍶 **お布施のお品書き**\n"
-        f"・ **【5回券】550円**（和尚に内緒の隠し酒代じゃ）\n{url_5}\n\n"
-        f"・ **【10回券】990円**（上等なつまみで機嫌が良くなるぞ）\n{url_10}\n\n"
-        "銭を包んでくれたら、秘密の極意を授けてやろう！"
-    )
+    # スッキリ整理された ikkyu_messages からランダム選択
+    return get_random_payment_message(url_5, url_10)
 
 def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     """
@@ -59,9 +51,11 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        user_id = session.get("client_reference_id")
-        session_id = session.get("id")
-        amount_total = session.get("amount_total")
+        
+        # StripeObject から安全に値を取得
+        user_id = getattr(session, "client_reference_id", None)
+        session_id = getattr(session, "id", None)
+        amount_total = getattr(session, "amount_total", None)
         
         if not user_id:
             print("警告: client_reference_id が紐づいていません")
