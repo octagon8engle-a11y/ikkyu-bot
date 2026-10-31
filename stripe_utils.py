@@ -83,11 +83,11 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
             add_user_paid_chats(supabase_client, user_id, add_count)
             print(f"お布施確認! User: {user_id}, +{add_count}回追加")
 
-            # 2. stripe_transactions_test テーブルへ確実に記録
+            # 2. stripe_transactions_test テーブルへ確実に記録（stripe_idカラムを使用）
             try:
                 supabase_client.table("stripe_transactions_test").insert({
                     "user_id": user_id,
-                    "stripe_id": session_id,  # session_id ではなく stripe_id に格納！
+                    "stripe_id": session_id,
                     "amount": amount_total,
                     "created_at": get_current_jst_str()
                 }).execute()
