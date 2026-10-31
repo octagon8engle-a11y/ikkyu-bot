@@ -12,6 +12,7 @@ import uvicorn
 from time_utils import get_current_jst_str
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
 from stripe_utils import handle_stripe_webhook, check_usage_limit_and_get_payment
+from ikkyu_messages import get_random_payment_message
 
 app = FastAPI()
 
