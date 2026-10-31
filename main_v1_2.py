@@ -96,50 +96,29 @@ def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
 
-    # 1. ロール判定（role テーブルから取得）
-    role = "user"
-    try:
-        role_resp = supabase.table("role").select("role").eq("user_id", user_id).execute()
-        if role_resp.data and len(role_resp.data) > 0:
-            role = role_resp.data[0].get("role", "user")
-    except Exception as e:
-        print(f"Role fetch error: {e}")
+# --- メッセージ受信ハンドラ内 ---
 
-    # 2. 利用制限 ＆ お布施（決済）判定
-    allowed, payment_msg = check_usage_limit_and_get_payment(supabase, user_id, role)
-    if not allowed and payment_msg:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=payment_msg)
-        )
-        return
+# 1. 利用制限チェック
+can_proceed, payment_msg, remaining_before = check_usage_limit_and_get_payment(supabase_client, user_id, role)
 
-    # 3. Geminiで返答生成
-    try:
-        chat_session = model.start_chat(history=[])
-        response = chat_session.send_message(user_message)
-        reply_text = response.text
-    except Exception as e:
-        print(f"Gemini error details: {e}")
-        reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
+if not can_proceed:
+    # 残り0回ならお布施案内を返す
+    line_bot_api.reply_message(reply_token, TextSendMessage(text=payment_msg))
+    return
 
-    # 4. 会話ログの保存（chat_logs_v1_2 テストテーブル）
-    try:
-        supabase.table("chat_logs_v1_2").insert({
-            "user_id": user_id,
-            "user_message": user_message,
-            "bot_reply": reply_text,
-            "created_at": get_current_jst_str()
-        }).execute()
-        print(f"DEBUG: chat_logs_v1_2 へのログ保存成功 (User: {user_id})")
-    except Exception as e:
-        print(f"Database error (chat_logs_v1_2): {e}")
-    
-    # 5. LINEへ返信
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_text)
-    )
+# 2. 一休さんのAI回答生成 & chat_logs_v1_2 にログ保存
+ikkyu_reply_text = generate_ikkyu_response(...) 
+
+save_chat_log_v1_2(supabase_client, user_id, user_message, ikkyu_reply_text)
+
+# 3. 返信メッセージの組み立て（tester の場合、今回の発言で1減った後の残数を表示）
+if role == "tester":
+    # ログ保存後の正確な残数を取得（または remaining_before - 1）
+    current_remaining = get_remaining_count(supabase_client, user_id)
+    ikkyu_reply_text += f"\n\n──────────────\n🍶 残り問答：{current_remaining}回"
+
+# 4. LINEへ返信
+line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
 
 
 if __name__ == "__main__":
