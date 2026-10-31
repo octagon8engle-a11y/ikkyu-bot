@@ -63,7 +63,6 @@ def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
             return False, get_payment_message(user_id), 0
         return True, None, remaining
 
-    # ロール未設定等も基本スルー
     return True, None, None
 
 async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=None):
@@ -94,7 +93,6 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
         fee_amount = 22 if amount_total == 550 else (40 if amount_total == 990 else 0)
 
         if add_count > 0:
-            # 1. stripe_transactions_test へ記録
             try:
                 supabase_client.table("stripe_transactions_test").insert({
                     "user_id": user_id,
@@ -107,7 +105,6 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
             except Exception as db_err:
                 print(f"DB transaction log error: {db_err}")
 
-            # 2. LINEプッシュ通知
             if line_bot_api:
                 try:
                     thanks_msg = (
