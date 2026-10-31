@@ -18,7 +18,6 @@ def get_payment_message(user_id: str) -> str:
     url_5 = f"{STRIPE_LINK_5}?client_reference_id={user_id}"
     url_10 = f"{STRIPE_LINK_10}?client_reference_id={user_id}"
     
-    # スッキリ整理された ikkyu_messages からランダム選択
     return get_random_payment_message(url_5, url_10)
 
 def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
@@ -26,14 +25,14 @@ def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     【利用制限＆課金判定】
     - admin: スルー（制限なし）
     - tester: 即課金（決済URLを案内）
-    - user: スルー（制限なし）
     """
-    if role == "admin" or role == "user":
+    if role == "admin":
         return True, None
 
     if role == "tester":
         return False, get_payment_message(user_id)
 
+    # ロール未設定の場合も制限なし
     return True, None
 
 async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=None):
@@ -62,17 +61,19 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
             return {"status": "no user_id linked"}
 
         add_count = 5 if amount_total == 550 else (10 if amount_total == 990 else 0)
+        fee_amount = 22 if amount_total == 550 else (40 if amount_total == 990 else 0)
 
         if add_count > 0:
-            # 1. stripe_transactions_test テーブルへ確実に記録
+            # 1. stripe_transactions_test テーブルへ記録（feeも正確に設定）
             try:
                 supabase_client.table("stripe_transactions_test").insert({
                     "user_id": user_id,
                     "stripe_id": session_id,
                     "amount": amount_total,
+                    "fee": fee_amount,
                     "created_at": get_current_jst_str()
                 }).execute()
-                print(f"stripe_transactions_test に記録完了: Stripe ID {session_id}")
+                print(f"stripe_transactions_test に記録完了: Stripe ID {session_id} (Fee: {fee_amount})")
             except Exception as db_err:
                 print(f"DB transaction log error: {db_err}")
 
