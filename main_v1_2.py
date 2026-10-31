@@ -11,9 +11,7 @@ import uvicorn
 
 # 分離したモジュールからインポート
 from time_utils import get_current_jst_str
-from referrer_tracker import extract_referrer_id, register_user_with_referrer
-from stripe_utils import handle_stripe_webhook, check_usage_limit_and_get_payment, get_payment_message
-from ikkyu_messages import get_random_payment_message
+from stripe_utils import handle_stripe_webhook, check_usage_limit_and_get_payment
 
 app = FastAPI()
 
@@ -86,9 +84,6 @@ async def stripe_webhook_endpoint(request: Request):
 
 @handler.add(FollowEvent)
 def handle_follow(event):
-    user_id = event.source.user_id
-    register_user_with_referrer(supabase, user_id, referrer_id=None)
-    
     welcome_message = "……ふむ。何があった？"
     line_bot_api.reply_message(
         event.reply_token,
@@ -101,7 +96,7 @@ def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
 
-    # 1. ロール判定（role シートから取得）
+    # 1. ロール判定（現存する role テーブルから取得）
     role = "user"
     try:
         role_resp = supabase.table("role").select("role").eq("user_id", user_id).execute()
@@ -110,10 +105,9 @@ def handle_message(event):
     except Exception as e:
         print(f"Role fetch error: {e}")
 
-    # 2. 回数制限 ＆ お布施（決済）判定
+    # 2. 利用制限 ＆ お布施（決済）判定
     allowed, payment_msg = check_usage_limit_and_get_payment(supabase, user_id, role)
     if not allowed and payment_msg:
-        # 回数制限オーバー時：一休さんのお布施おねだり文（決済URL付き）を返信
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=payment_msg)
@@ -129,31 +123,19 @@ def handle_message(event):
         print(f"Gemini error details: {e}")
         reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
 
-    # 4. 利用回数のカウントアップ (users テーブル)
+    # 4. 会話ログの保存（現存する chat_logs_v1_2 テーブルに直接保存）
     try:
-        u_data = supabase.table("users").select("count").eq("user_id", user_id).execute()
-        cur_c = u_data.data[0].get("count", 0) if u_data.data else 0
-        supabase.table("users").upsert({"user_id": user_id, "count": cur_c + 1}).execute()
-    except Exception as e:
-        print(f"User count update error: {e}")
-
-    # 5. ログの保存（chat_logs_v1_2 テストテーブル）
-    try:
-        user_record = supabase.table("users_v1_2").select("referrer_id").eq("user_id", user_id).execute()
-        ref_id = user_record.data[0].get("referrer_id") if user_record.data else None
-
         supabase.table("chat_logs_v1_2").insert({
             "user_id": user_id,
             "user_message": user_message,
             "bot_reply": reply_text,
-            "referrer_id": ref_id,
             "created_at": get_current_jst_str()
         }).execute()
-        print(f"DEBUG: chat_logs_v1_2 へのログ保存成功")
+        print(f"DEBUG: chat_logs_v1_2 へのログ保存成功 (User: {user_id})")
     except Exception as e:
         print(f"Database error (chat_logs_v1_2): {e}")
     
-    # 6. LINEへ返信
+    # 5. LINEへ返信
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
