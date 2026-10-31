@@ -11,7 +11,7 @@ import uvicorn
 # 分離したモジュールからインポート
 from time_utils import get_current_jst_str
 from referrer_tracker import extract_referrer_id, register_user_with_referrer
-from stripe_utils import handle_stripe_webhook, check_usage_limit_and_get_payment
+from stripe_utils import handle_stripe_webhook, check_usage_limit_and_get_payment, get_payment_message
 from ikkyu_messages import get_random_payment_message
 
 app = FastAPI()
@@ -102,12 +102,9 @@ def handle_message(event):
 
     # 1. ロール判定（role_rows または users から取得）
     role = "user"
-    try:
-        role_resp = supabase.table("role_rows").select("role").eq("user_id", user_id).execute()
-        if role_resp.data and len(role_resp.data) > 0:
-            role = role_resp.data[0].get("role", "user")
-    except Exception as e:
-        print(f"Role fetch error: {e}")
+    role_resp = supabase.table("role_rows").select("role").eq("user_id", user_id).execute()
+    if role_resp.data and len(role_resp.data) > 0:
+        role = role_resp.data[0].get("role", "user")
 
     # 2. 回数制限 ＆ お布施（決済）判定
     allowed, payment_msg = check_usage_limit_and_get_payment(supabase, user_id, role)
@@ -120,36 +117,28 @@ def handle_message(event):
         return
 
     # 3. Geminiで返答生成
-    try:
-        chat_session = model.start_chat(history=[])
-        response = chat_session.send_message(user_message)
-        reply_text = response.text
-    except Exception as e:
-        print(f"Gemini error details: {e}")
-        reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
+    chat_session = model.start_chat(history=[])
+    response = chat_session.send_message(user_message)
+    reply_text = response.text
 
-    # 4. 利用回数のカウントアップ (users テーブル)
-    try:
-        u_data = supabase.table("users").select("count").eq("user_id", user_id).execute()
-        cur_c = u_data.data[0].get("count", 0) if u_data.data else 0
-        supabase.table("users").upsert({"user_id": user_id, "count": cur_c + 1}).execute()
-    except Exception as e:
-        print(f"User count update error: {e}")
+    # 4. 利用回数のカウントアップ (users テーブル) - 【例外処理なし・生エラー出力】
+    u_data = supabase.table("users").select("count").eq("user_id", user_id).execute()
+    cur_c = u_data.data[0].get("count", 0) if u_data.data else 0
+    supabase.table("users").upsert({"user_id": user_id, "count": cur_c + 1}).execute()
+    print(f"DEBUG: users テーブルのカウントアップ成功 (user_id: {user_id}, count: {cur_c + 1})")
 
-    # 5. ログの保存（v1_2 テストテーブル）
-    try:
-        user_record = supabase.table("users_v1_2").select("referrer_id").eq("user_id", user_id).execute()
-        ref_id = user_record.data[0].get("referrer_id") if user_record.data else None
+    # 5. ログの保存（v1_2 テストテーブル） - 【例外処理なし・生エラー出力】
+    user_record = supabase.table("users_v1_2").select("referrer_id").eq("user_id", user_id).execute()
+    ref_id = user_record.data[0].get("referrer_id") if user_record.data else None
 
-        supabase.table("chat_logs_v1_2").insert({
-            "user_id": user_id,
-            "user_message": user_message,
-            "bot_reply": reply_text,
-            "referrer_id": ref_id,
-            "created_at": get_current_jst_str()
-        }).execute()
-    except Exception as e:
-        print(f"Database error: {e}")
+    supabase.table("chat_logs_v1_2").insert({
+        "user_id": user_id,
+        "user_message": user_message,
+        "bot_reply": reply_text,
+        "referrer_id": ref_id,
+        "created_at": get_current_jst_str()
+    }).execute()
+    print(f"DEBUG: chat_logs_v1_2 へのログ保存成功")
     
     # 6. LINEへ返信
     line_bot_api.reply_message(
