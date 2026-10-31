@@ -96,7 +96,7 @@ def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
 
-    # 1. ロール判定（現存する role テーブルから取得）
+    # 1. ロール判定（role テーブルから取得）
     role = "user"
     try:
         role_resp = supabase.table("role").select("role").eq("user_id", user_id).execute()
@@ -125,18 +125,13 @@ def handle_message(event):
 
     # 4. 会話ログの保存（chat_logs_v1_2 テストテーブル）
     try:
-        # ユーザーのこれまでの発言回数（ログの件数など）をカウントして turn_count とする
-        count_resp = supabase.table("chat_logs_v1_2").select("id", count="exact").eq("user_id", user_id).execute()
-        current_turn = (count_resp.count or 0) + 1
-
         supabase.table("chat_logs_v1_2").insert({
             "user_id": user_id,
             "user_message": user_message,
             "bot_reply": reply_text,
-            "turn_count": current_turn,  # ← ここに正確なターン数（残数や回数）を格納！
             "created_at": get_current_jst_str()
         }).execute()
-        print(f"DEBUG: chat_logs_v1_2 へのログ保存成功 (User: {user_id}, turn_count: {current_turn})")
+        print(f"DEBUG: chat_logs_v1_2 へのログ保存成功 (User: {user_id})")
     except Exception as e:
         print(f"Database error (chat_logs_v1_2): {e}")
     
