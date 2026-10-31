@@ -100,11 +100,14 @@ def handle_message(event):
     user_id = event.source.user_id
     user_message = event.message.text
 
-    # 1. ロール判定（role_rows または users から取得）
+    # 1. ロール判定（role テーブルから取得）
     role = "user"
-    role_resp = supabase.table("role_rows").select("role").eq("user_id", user_id).execute()
-    if role_resp.data and len(role_resp.data) > 0:
-        role = role_resp.data[0].get("role", "user")
+    try:
+        role_resp = supabase.table("role").select("role").eq("user_id", user_id).execute()
+        if role_resp.data and len(role_resp.data) > 0:
+            role = role_resp.data[0].get("role", "user")
+    except Exception as e:
+        print(f"Role fetch error: {e}")
 
     # 2. 回数制限 ＆ お布施（決済）判定
     allowed, payment_msg = check_usage_limit_and_get_payment(supabase, user_id, role)
