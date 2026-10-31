@@ -5,6 +5,7 @@ from fastapi import Request, HTTPException
 from linebot.models import TextSendMessage
 from ikkyu_messages import get_random_payment_message
 from remaining_chats import add_user_paid_chats
+from time_utils import get_current_jst_str
 
 # フォールバック用リンク
 STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00")
@@ -53,7 +54,7 @@ def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     return True, None
 
 async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=None):
-    """Stripe決済成功時のWebhook処理＆回数加算・LINEプッシュ通知"""
+    """Stripe決済成功時のWebhook処理＆回数加算・stripe_transactions_test記録・LINEプッシュ通知"""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
@@ -68,18 +69,34 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         user_id = session.get("client_reference_id")
+        session_id = session.get("id")
+        amount_total = session.get("amount_total")
         
         if not user_id:
             print("警告: client_reference_id が紐づいていません")
             return {"status": "no user_id linked"}
 
-        amount_total = session.get("amount_total")
         add_count = 5 if amount_total == 550 else (10 if amount_total == 990 else 0)
 
         if add_count > 0:
+            # 1. ユーザーの購入回数（paid_chats）を増やす
             add_user_paid_chats(supabase_client, user_id, add_count)
             print(f"お布施確認! User: {user_id}, +{add_count}回追加")
 
+            # 2. stripe_transactions_test テーブルへ確実に記録
+            try:
+                supabase_client.table("stripe_transactions_test").insert({
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "amount": amount_total,
+                    "add_count": add_count,
+                    "created_at": get_current_jst_str()
+                }).execute()
+                print(f"stripe_transactions_test に記録完了: Session {session_id}")
+            except Exception as db_err:
+                print(f"DB transaction log error: {db_err}")
+
+            # 3. LINEプッシュ通知
             if line_bot_api:
                 try:
                     thanks_msg = (
