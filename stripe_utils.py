@@ -20,30 +20,32 @@ def get_payment_message(user_id: str) -> str:
 
 def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     """
-    【通常回数制限モード】
+    【利用制限＆課金判定】
     - admin: 無制限
-    - その他: users テーブルの count と paid_chats を参照し、無料5回＋購入分を超えたら制限
+    - tester: お試しなし（無料枠5回なし、購入分 paid_chats を超えたら即決済へ）
+    - その他: 無料5回 ＋ 購入分(paid_chats) が上限
     """
     if role == "admin":
         return True, None
 
     try:
-        # users テーブルから count と paid_chats を取得
         user_resp = supabase_client.table("users").select("count, paid_chats").eq("user_id", user_id).execute()
         
+        current_count = 0
+        paid_chats = 0
         if user_resp.data and len(user_resp.data) > 0:
             user_data = user_resp.data[0]
             current_count = user_data.get("count", 0) or 0
             paid_chats = user_data.get("paid_chats", 0) or 0
 
-            # 無料枠（5回）＋ 購入済み追加枠 が上限
-            max_allowed = 5 + paid_chats
-
-            if current_count >= max_allowed:
-                return False, get_payment_message(user_id)
+        # ロール別の許容回数計算
+        if role == "tester":
+            max_allowed = paid_chats  # お試しなし（無料枠なし）
         else:
-            # レコードがない場合は初回扱いとして通す
-            pass
+            max_allowed = 5 + paid_chats  # 一般ユーザーは無料5回＋購入分
+
+        if current_count >= max_allowed:
+            return False, get_payment_message(user_id)
 
     except Exception as e:
         print(f"Limit check error: {e}")
@@ -87,10 +89,5 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
                     line_bot_api.push_message(user_id, TextSendMessage(text=thanks_msg))
                 except Exception as e:
                     print(f"LINE push notification error: {e}")
-
-    return {"status": "success"}
-
-        if add_count > 0:
-            add_user_paid_chats(supabase_client, user_id, add_count)
 
     return {"status": "success"}
