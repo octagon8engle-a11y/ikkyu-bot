@@ -3,25 +3,25 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, FollowEvent
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import google.generativeai as genai
 from supabase import create_client, Client
 
-# 自作モジュール（stripe_utils から決済関連の関数をインポート）
+# 自作モジュール
 from stripe_utils import check_usage_limit_and_get_payment, handle_stripe_webhook, get_remaining_count
 from time_utils import get_current_jst_str
 
 app = FastAPI()
 
-# 環境変数
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+# 環境変数（Render側の設定名にあわせる）
+LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 ADMIN_LINE_ID = os.getenv("ADMIN_LINE_ID")  # 管理者のLINE ID
 
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -92,7 +92,7 @@ def handle_message(event):
     # ロール判定 (管理者なら admin、それ以外は tester)
     role = "admin" if user_id == ADMIN_LINE_ID else "tester"
 
-    # 1. 利用制限＆お布施（決済）判定（3つの戻り値を正しく受領）
+    # 1. 利用制限＆お布施（決済）判定
     can_proceed, payment_msg, remaining_before = check_usage_limit_and_get_payment(
         supabase_client, user_id, role
     )
