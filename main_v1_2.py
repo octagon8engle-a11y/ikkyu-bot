@@ -62,7 +62,7 @@ def save_chat_log_v1_2(supabase, user_id: str, user_msg: str, bot_msg: str):
         supabase.table("chat_logs_v1_2").insert({
             "user_id": user_id,
             "user_message": user_msg,
-            "bot_response": bot_msg,
+            "bot_reply": bot_msg,
             "created_at": get_current_jst_str()
         }).execute()
     except Exception as e:
