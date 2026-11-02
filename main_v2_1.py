@@ -8,7 +8,6 @@ import google.generativeai as genai
 from supabase import create_client, Client
 
 # 自作モジュール
-from role_utils import get_user_role
 from stripe_utils import check_usage_limit_and_get_payment, handle_stripe_webhook, get_remaining_count
 from time_utils import get_current_jst_str
 
