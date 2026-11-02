@@ -6,8 +6,14 @@ from linebot.models import TextSendMessage
 from ikkyu_messages import get_random_payment_message
 from time_utils import get_current_jst_str
 
-STRIPE_LINK_5 = "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00"
-STRIPE_LINK_10 = "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01"
+# 環境変数から決済リンクのURLを取得する
+STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5")
+STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10")
+
+def get_payment_message(user_id):
+    url_5 = f"{STRIPE_LINK_5}?client_reference_id={user_id}"
+    url_10 = f"{STRIPE_LINK_10}?client_reference_id={user_id}"
+    return url_5, url_10
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
