@@ -6,7 +6,6 @@ from linebot.models import TextSendMessage
 from ikkyu_messages import get_random_payment_message
 from time_utils import get_current_jst_str
 
-# 正しいStripeテスト決済URL
 STRIPE_LINK_5 = "https://buy.stripe.com/test_14A3cv3FjfRS5G28eAcjS00"
 STRIPE_LINK_10 = "https://buy.stripe.com/test_3cI4gzdfT7lm7OaamIcjS01"
 
@@ -14,9 +13,9 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 def get_remaining_count(supabase_client, user_id: str) -> int:
-    """stripe_transactions_test と chat_logs_v3_1 から残り問答数を計算"""
+    """stripe_transactions_test と chat_logs_v2_1 から残り問答数を計算"""
     try:
-        # 1. 決済履歴から総購入回数を計算 (550円: 5回, 990円: 10回)
+        # 1. 決済履歴（およびお試しボーナス履歴）を取得
         res_tx = supabase_client.table("stripe_transactions_test") \
             .select("amount").eq("user_id", user_id).execute()
         
@@ -27,14 +26,16 @@ def get_remaining_count(supabase_client, user_id: str) -> int:
                 total_bought += 5
             elif amount == 990:
                 total_bought += 10
+            elif amount == 0:  # 新規お試しボーナス分
+                total_bought += 5
                 
-        # 2. チャットログから使用回数を計算
-        res_log = supabase_client.table("chat_logs_v3_1") \
+        # 2. チャットログから使用回数を計算（chat_logs_v2_1）
+        res_log = supabase_client.table("chat_logs_v2_1") \
             .select("id", count="exact").eq("user_id", user_id).execute()
         
         total_used = res_log.count if res_log.count is not None else len(res_log.data)
         
-        # 3. 残り回数を算出
+        # 3. 残り回数を算出（履歴がなければ total_bought = 0 なので即座に0回になる）
         remaining = total_bought - total_used
         return max(0, remaining)
     except Exception as e:
@@ -42,18 +43,50 @@ def get_remaining_count(supabase_client, user_id: str) -> int:
         return 0
 
 def get_payment_message(user_id: str) -> str:
-    """ユーザーID（client_reference_id）を付与したお布施案内文を生成"""
     url_5 = f"{STRIPE_LINK_5}?client_reference_id={user_id}"
     url_10 = f"{STRIPE_LINK_10}?client_reference_id={user_id}"
-    
     return get_random_payment_message(url_5, url_10)
 
+def verify_and_consume_cipher(supabase_client, user_id: str, input_cipher: str) -> bool:
+    """送られてきた暗号（cipher）が有効かチェックし、使用済みにする ＋ 初回お試し5回を付与する"""
+    try:
+        res = supabase_client.table("cipher") \
+            .select("*").eq("code", input_cipher).eq("is_used", False).execute()
+        
+        if res.data and len(res.data) > 0:
+            cipher_record = res.data[0]
+            # 使用済みに更新
+            supabase_client.table("cipher").update({
+                "is_used": True,
+                "used_by": user_id
+            }).eq("id", cipher_record["id"]).execute()
+            
+            # ★ここで初めて新規お試し5回分（amount=0）を付与する！
+            supabase_client.table("stripe_transactions_test").insert({
+                "user_id": user_id,
+                "stripe_id": "trial_bonus_5",
+                "amount": 0,
+                "fee": 0,
+                "created_at": get_current_jst_str()
+            }).execute()
+            
+            return True
+    except Exception as e:
+        print(f"cipher検証エラー: {e}")
+    return False
+
+def check_user_registered(supabase_client, user_id: str) -> bool:
+    """すでに決済履歴やお試しボーナス、またはcipher紐づけがあるかチェック"""
+    try:
+        res = supabase_client.table("stripe_transactions_test") \
+            .select("id", count="exact").eq("user_id", user_id).execute()
+        count = res.count if res.count is not None else len(res.data)
+        return count > 0
+    except Exception as e:
+        print(f"ユーザー登録確認エラー: {e}")
+        return False
+
 def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
-    """
-    【利用制限＆課金判定】
-    - admin: スルー（制限なし）
-    - tester: 残り回数チェック（0回以下ならお布施案内）
-    """
     if role == "admin":
         return True, None, None
 
@@ -66,7 +99,6 @@ def check_usage_limit_and_get_payment(supabase_client, user_id: str, role: str):
     return True, None, None
 
 async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=None):
-    """Stripe決済成功時のWebhook処理＆stripe_transactions_test記録・LINEプッシュ通知"""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
@@ -75,18 +107,15 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
             payload, sig_header, STRIPE_WEBHOOK_SECRET
         )
     except Exception as e:
-        print(f"Webhook Signature Error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        
         user_id = getattr(session, "client_reference_id", None)
         session_id = getattr(session, "id", None)
         amount_total = getattr(session, "amount_total", None)
         
         if not user_id:
-            print("警告: client_reference_id が紐づいていません")
             return {"status": "no user_id linked"}
 
         add_count = 5 if amount_total == 550 else (10 if amount_total == 990 else 0)
@@ -101,7 +130,6 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
                     "fee": fee_amount,
                     "created_at": get_current_jst_str()
                 }).execute()
-                print(f"stripe_transactions_test に記録完了: Stripe ID {session_id} (Fee: {fee_amount})")
             except Exception as db_err:
                 print(f"DB transaction log error: {db_err}")
 
@@ -113,6 +141,6 @@ async def handle_stripe_webhook(request: Request, supabase_client, line_bot_api=
                     )
                     line_bot_api.push_message(user_id, TextSendMessage(text=thanks_msg))
                 except Exception as e:
-                    print(f"LINE push notification error: {e}")
+                    print(f"LINE push error: {e}")
 
     return {"status": "success"}
