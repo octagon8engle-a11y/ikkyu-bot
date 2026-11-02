@@ -17,6 +17,7 @@ from stripe_utils import (
     check_user_registered
 )
 from time_utils import get_current_jst_str
+from referrer_tracker import extract_referrer_id, register_user_with_referrer
 
 app = FastAPI()
 
@@ -104,6 +105,11 @@ def handle_message(event):
                 line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                 return
             else:
+                # ★ここにリファラー登録を仕込んでおく（プレリリース中はrefなしでも安全に動く）
+                # ※もしメッセージや別の方法でrefを受け取る設計にする場合はここで抽出します
+                referrer_id = extract_referrer_id({}) # 現状はNoneとして登録
+                register_user_with_referrer(supabase_client, user_id, referrer_id)
+                
                 # 暗号一致！初回お試し枠（5回分）が自動生成される
                 init_remaining = get_remaining_count(supabase_client, user_id)
                 welcome_text = (
