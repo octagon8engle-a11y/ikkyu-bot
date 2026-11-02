@@ -14,7 +14,7 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 def get_remaining_count(supabase_client, user_id: str) -> int:
-    """stripe_transactions_test と chat_logs_v1_2 から残り問答数を計算"""
+    """stripe_transactions_test と chat_logs_v3_1 から残り問答数を計算"""
     try:
         # 1. 決済履歴から総購入回数を計算 (550円: 5回, 990円: 10回)
         res_tx = supabase_client.table("stripe_transactions_test") \
@@ -29,7 +29,7 @@ def get_remaining_count(supabase_client, user_id: str) -> int:
                 total_bought += 10
                 
         # 2. チャットログから使用回数を計算
-        res_log = supabase_client.table("chat_logs_v1_2") \
+        res_log = supabase_client.table("chat_logs_v3_1") \
             .select("id", count="exact").eq("user_id", user_id).execute()
         
         total_used = res_log.count if res_log.count is not None else len(res_log.data)
