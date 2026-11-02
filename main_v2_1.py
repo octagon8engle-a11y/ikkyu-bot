@@ -137,8 +137,8 @@ def handle_message(event):
     # 3. チャットログを保存（chat_logs_v2_1）
     save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text)
 
-    # 4. 残り回数を末尾に添える
-    if role == "tester":
+    # 4. 残り回数を末尾に添える（管理者以外に表示）
+    if role != "admin":
         current_remaining = get_remaining_count(supabase_client, user_id)
         ikkyu_reply_text += f"\n\n──────────────\n🍶 残り問答：{current_remaining}回"
 
