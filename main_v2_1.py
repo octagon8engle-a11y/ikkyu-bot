@@ -113,13 +113,16 @@ def handle_message(event):
                 line_bot_api.reply_message(reply_token, TextSendMessage(text=welcome_text))
                 return
 
-    # 1. 利用制限＆お布施（決済）判定
+    # 1. お布施案内（Stripeリンク含む）を返すとき
     can_proceed, payment_msg, remaining_before = check_usage_limit_and_get_payment(
         supabase_client, user_id, role
     )
 
     if not can_proceed:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text=payment_msg))
+        line_bot_api.reply_message(
+            reply_token, 
+            TextSendMessage(text=payment_msg, with_web_page_preview=False)
+        )
         return
 
     # 2. Geminiによる回答生成
