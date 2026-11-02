@@ -8,7 +8,7 @@ def process_user_chat_count(supabase, user_id: str) -> bool:
     両方0ならFalseを返す（Stripe誘導用）
     """
     # 1. ユーザーデータを取得（存在しない場合は新規作成するなどの処理があってもOK）
-    response = supabase.table("users_v1_2").select("*").eq("user_id", user_id).execute()
+    response = supabase.table("users_v2_1").select("*").eq("user_id", user_id).execute()
     
     if not response.data:
         # ユーザーがDBにいない場合の初期化（無料5回）
@@ -50,7 +50,7 @@ def add_user_paid_chats(supabase, user_id: str, add_count: int):
     """
     Stripe決済完了時に、有料チャット残数を加算する関数（Webhookから呼ばれる）
     """
-    response = supabase.table("users_v1_2").select("paid_chats_left").eq("user_id", user_id).execute()
+    response = supabase.table("users_v2_1").select("paid_chats_left").eq("user_id", user_id).execute()
     
     if response.data:
         current_paid = response.data[0].get("paid_chats_left", 0)
