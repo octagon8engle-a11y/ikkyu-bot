@@ -1,39 +1,31 @@
-# main_v2_1.py
 import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, FollowEvent
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import google.generativeai as genai
 from supabase import create_client, Client
-import uvicorn
 
-# モジュールからインポート
+# 自作モジュール
+from stripe_utils import check_usage_limit_and_get_payment, handle_stripe_webhook, get_remaining_count
 from time_utils import get_current_jst_str
-from stripe_utils import handle_stripe_webhook
 
 app = FastAPI()
 
-@app.post("/stripe-webhook")
-async def stripe_webhook_endpoint(request: Request):
-    return await handle_stripe_webhook(request, supabase)
-
-# 環境変数からの読み込み
+# 環境変数（Render側の設定名にあわせる）
 LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-# Stripeの決済リンク（Renderの環境変数から取得）
-STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "https://buy.stripe.com/test_550")
-STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "https://buy.stripe.com/test_990")
+ADMIN_LINE_ID = os.getenv("ADMIN_LINE_ID")  # 管理者のLINE ID
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
+supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Geminiの初期設定
+# Geminiの初期設定（一休さんの魂のプロンプト）
 genai.configure(api_key=GEMINI_API_KEY)
 
 IKKYU_SYSTEM_PROMPT = """
@@ -64,87 +56,73 @@ model = genai.GenerativeModel(
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
 
-# Supabaseの初期設定
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-
-@app.get("/")
-async def root():
-    return {"status": "AI Ikkyu v2.1 Zen Sarcasm & Stripe Monetization Mode is awake"}
-
-@app.post("/callback")
-async def callback(request: Request):
-    signature = request.headers.get("X-Line-Signature", "")
-    body = await request.body()
-    body_str = body.decode("utf-8")
-    
+def save_chat_log_v2_1(supabase, user_id: str, user_msg: str, bot_msg: str):
+    """chat_logs_v2_1 テーブルへメッセージやり取りを記録"""
     try:
-        await run_in_threadpool(handler.handle, body_str, signature)
-    except InvalidSignatureError:
-        raise HTTPException(status_code=400, detail="Invalid signature. Check channel secret.")
-    return "OK"
-
-@handler.add(FollowEvent)
-def handle_follow(event):
-    user_id = event.source.user_id
-    register_user_with_referrer(supabase, user_id, referrer_id=None)
-    
-    welcome_message = "……ふむ。何があった？"
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=welcome_message)
-    )
-
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    user_id = event.source.user_id
-    user_message = event.message.text
-    
-    # 1. ロール判定の取得
-    role = get_user_role(supabase, user_id)
-
-    # 2. 回数制限のチェック（adminならスルーされる仕様）
-    is_allowed = check_usage_limit(supabase, user_id, role)
-    if not is_allowed:
-        # ikkyu_messages.py からランダムに酒好きおねだり文面を生成
-        limit_message = get_random_payment_message(STRIPE_LINK_5, STRIPE_LINK_10)
-        
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=limit_message)
-        )
-        return
-
-    # 3. Geminiで返答生成
-    try:
-        chat_session = model.start_chat(history=[])
-        response = chat_session.send_message(user_message)
-        reply_text = response.text
-    except Exception as e:
-        print(f"Gemini error details: {e}")
-        reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
-
-    # 4. ログの保存
-    try:
-        user_record = supabase.table("users_v1_2").select("referrer_id").eq("user_id", user_id).execute()
-        ref_id = user_record.data[0].get("referrer_id") if user_record.data else None
-
-        supabase.table("chat_logs_v1_2").insert({
+        supabase.table("chat_logs_v2_1").insert({
             "user_id": user_id,
-            "user_message": user_message,
-            "bot_reply": reply_text,
-            "referrer_id": ref_id,
+            "user_message": user_msg,
+            "bot_reply": bot_msg,
             "created_at": get_current_jst_str()
         }).execute()
     except Exception as e:
-        print(f"Database error: {e}")
-    
-    # 5. LINEへ返信
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_text)
+        print(f"chat_logs_v2_1insert error: {e}")
+
+@app.post("/callback")
+async def callback(request: Request):
+    """LINEからのWebhookを受け取るエンドポイント"""
+    signature = request.headers.get("X-Line-Signature", "")
+    body = await request.body()
+    body_str = body.decode("utf-8")
+
+    try:
+        await run_in_threadpool(handler.handle, body_str, signature)
+    except InvalidSignatureError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    return "OK"
+
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    """LINEのテキストメッセージ受信時の処理"""
+    user_id = event.source.user_id
+    user_message = event.message.text
+    reply_token = event.reply_token
+
+    # ロール判定 (管理者なら admin、それ以外は tester)
+    role = "admin" if user_id == ADMIN_LINE_ID else "tester"
+
+    # 1. 利用制限＆お布施（決済）判定
+    can_proceed, payment_msg, remaining_before = check_usage_limit_and_get_payment(
+        supabase_client, user_id, role
     )
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main_v2_1:app", host="0.0.0.0", port=port)
+    if not can_proceed:
+        # 回数切れの場合はお布施案内を返す
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=payment_msg))
+        return
+
+    # 2. Geminiによる一休さんの回答生成
+    try:
+        chat_session = model.start_chat(history=[])
+        response = chat_session.send_message(user_message)
+        ikkyu_reply_text = response.text
+    except Exception as e:
+        print(f"Gemini error details: {e}")
+        ikkyu_reply_text = f"……おっと、煩悩が多すぎて頭の回路がショートしたわい。（エラー原因: {e}）"
+
+    # 3. チャットログを保存
+    save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text)
+
+    # 4. tester の場合、今回の発言で減った後の残り回数を末尾に添える
+    if role == "tester":
+        current_remaining = get_remaining_count(supabase_client, user_id)
+        ikkyu_reply_text += f"\n\n──────────────\n🍶 残り問答：{current_remaining}回"
+
+    # 5. LINEへ返信
+    line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
+
+@app.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Stripeからの決済完了通知（Webhook）を受け取るエンドポイント"""
+    return await handle_stripe_webhook(request, supabase_client, line_bot_api)
