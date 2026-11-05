@@ -220,6 +220,158 @@ async def landing_page():
             font-size: 0.95rem;
             margin-bottom: 20px;
         }
-        .highlight-box {
+        .section-box {
             background: rgba(15, 20, 28, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .section-box.gold {
             border-left: 4px solid var(--accent-gold);
+        }
+        .section-box h3 {
+            color: var(--accent-gold);
+            font-size: 1rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .section-box ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .section-box li {
+            font-size: 0.88rem;
+            color: var(--text-main);
+            margin-bottom: 6px;
+            position: relative;
+            padding-left: 16px;
+        }
+        .section-box li::before {
+            content: "・";
+            position: absolute;
+            left: 0;
+            color: var(--accent-gold);
+        }
+        .price-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .price-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+        }
+        .price-card .num {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--accent-gold);
+        }
+        .price-card .label {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+        }
+        .pay-methods {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            background-color: #06c755; /* LINE Green */
+            color: white;
+            text-align: center;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.05rem;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(6, 199, 85, 0.3);
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .stripe-badge {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 15px;
+        }
+        .stripe-badge span {
+            color: #635bff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="text-align: center;">
+        <div class="badge">📅 11/3(火)〜11/8(日) 先行プレリリース（限定10名様）</div>
+        <h1>現代の草庵に生きる<br>「AI一休」</h1>
+        <p>煩悩、抱えておらんか？あなたの迷いをユーモアと毒気でスパッと断ち切るLINEボット。</p>
+        
+        <!-- 案内 -->
+        <div class="section-box gold">
+            <h3>📢 プレリリース＆キャンペーン</h3>
+            <ul>
+                <li><strong>プレリリース期間：</strong>11月3日(火)〜11月8日(日)（限定10名様）</li>
+                <li><strong>参加方法：</strong>個別に「一休」とメッセージを送ると送られてくる「合言葉（cipher）」を入力してスタート！</li>
+                <li><strong>11/9(月)以降：</strong>本格解禁！LINEでお友達に紹介すると素敵な特典（ボーナス問答など）がある仕掛けを準備中！</li>
+            </ul>
+        </div>
+
+        <!-- 料金・お布施システム -->
+        <div class="section-box">
+            <h3>🍶 料金・お布施（お酒代）システム</h3>
+            <ul>
+                <li><strong>参加特典：</strong>合言葉入力で問答 <strong>5回分無料</strong> 進呈！</li>
+                <li><strong>問答のチャージ：</strong>お試し分終了後、冷やかしや励ましのお布施としていつでもチャージ可能。月額自動引き落とし等のサブスクではありません。</li>
+            </ul>
+            
+            <div class="price-grid">
+                <div class="price-card">
+                    <div class="num">550円</div>
+                    <div class="label">5回券</div>
+                </div>
+                <div class="price-card">
+                    <div class="num">990円</div>
+                    <div class="label">10回券</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 決済手段 -->
+        <div class="section-box">
+            <h3>💳 ご利用可能な決済手段</h3>
+            <p class="pay-methods">
+                世界基準の安全な決済システム <strong>Stripe</strong> を採用しています。<br>
+                ・各種クレジットカード（Visa, Mastercard, JCB, Amex等）<br>
+                ・Apple Pay / Google Pay 対応<br>
+                ※クレジットカード情報は当サービス側には一切保存されません。
+            </p>
+        </div>
+
+        <!-- LINE導線ボタン -->
+        <a href="https://line.me/R/ti/p/@YOUR_LINE_BOT_ID" class="btn">LINEで一休さんと問答を始める</a>
+        
+        <div class="stripe-badge">
+            🔒 決済保護：安全な <span>Stripe</span> 決済システムを採用しています
+        </div>
+    </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html_content)
