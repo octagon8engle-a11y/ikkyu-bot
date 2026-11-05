@@ -154,3 +154,72 @@ def handle_message(event):
 @app.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     return await handle_stripe_webhook(request, supabase_client, line_bot_api)
+
+from fastapi.responses import HTMLResponse
+
+@app.get("/", response_class=HTMLResponse)
+async def landing_page():
+    html_content = """<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI一休さん - 草庵の迷い断ち切り所</title>
+    <style>
+        :root {
+            --bg-color: #0f141c;
+            --card-bg: #1a2230;
+            --accent-gold: #d4af37;
+            --text-main: #f0f4f8;
+            --text-sub: #94a3b8;
+            --border-color: #2a364d;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 480px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .badge {
+            display: inline-block;
+            background: rgba(212, 175, 55, 0.15);
+            color: var(--accent-gold);
+            font-size: 0.85rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+        h1 {
+            font-size: 1.6rem;
+            margin-bottom: 15px;
+            color: var(--text-main);
+            letter-spacing: 0.05em;
+        }
+        p {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+        .highlight-box {
+            background: rgba(15, 20, 28, 0.6);
+            border-left: 4px solid var(--accent-gold);
