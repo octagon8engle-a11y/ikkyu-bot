@@ -330,7 +330,7 @@ async def landing_page():
             <ul>
                 <li><strong>プレリリース期間：</strong>11月3日(火)〜11月8日(日)（限定10名様）</li>
                 <li><strong>参加方法：</strong>個別に「一休」とメッセージを送ると送られてくる「合言葉（cipher）」を入力してスタート！</li>
-                <li><strong>11/9(月)以降：</strong>本格解禁！LINEでお友達に紹介すると素敵な特典（ボーナス問答など）がある仕掛けを準備中！</li>
+                <li><strong>11/9(月)以降：</strong>本格解禁！LINEでお友達に紹介すると素敵な特典がある仕掛けを準備中！</li>
             </ul>
         </div>
 
