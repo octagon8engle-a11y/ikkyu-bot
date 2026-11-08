@@ -93,9 +93,6 @@ def handle_message(event):  # ←ここを復活させる！
         user_message = "こんにちは、草庵にやってきたぞい。"
 
     # 3. ユーザーの履歴と状態をチェック
-    remaining_count = get_remaining_count(supabase_client, user_id)   
-
-    # 3. ユーザーの履歴と状態をチェック
     remaining_count = get_remaining_count(supabase_client, user_id)
     
     # 決済履歴（またはお試しボーナス付与済みか）があるか
