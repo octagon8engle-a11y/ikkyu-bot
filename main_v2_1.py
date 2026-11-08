@@ -85,17 +85,24 @@ async def callback(request: Request):
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    # 1. まず先にユーザー情報を取得する
+    user_id = event.source.user_id
+    user_message = event.message.text.strip()
+    reply_token = event.reply_token
+
+    # 2. 管理者（ADMIN_LINE_ID）の場合は、すべての制限をスルーして即座に通す
     if ADMIN_LINE_ID and user_id == ADMIN_LINE_ID:
-        user_id = event.source.user_id
-        user_message = event.message.text.strip()
-        reply_token = event.reply_token
-
-    # 1. 紹介者パラメータの抽出 (例: "ref:U12345...")
-    referrer_id = None
-    if user_message.startswith("ref:"):
-        referrer_id = user_message.replace("ref:", "").strip()
-        user_message = "こんにちは、草庵にやってきたぞい。" # 最初の挨拶に変換
-
+        try:
+            chat_session = model.start_chat(history=[])
+            response = chat_session.send_message(user_message)
+            ikkyu_reply_text = response.text
+        except Exception as e:
+            ikkyu_reply_text = f"……おっと、管理者殿、回路がショートしたわい。（エラー: {e}）"
+        
+        save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text, None)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
+        return  # 管理者はここで処理終了！
+       
     # 2. ユーザーの履歴と状態をチェック
     remaining_count = get_remaining_count(supabase_client, user_id)
     
