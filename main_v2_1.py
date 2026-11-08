@@ -54,36 +54,14 @@ model = genai.GenerativeModel(
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
 
-def save_chat_log_v2_1(supabase, user_id: str, user_msg: str, bot_msg: str, referrer_id: str = None):
-    """chat_logs_v2_1 テーブルへメッセージやり取り・紹介者を記録"""
-    try:
-        data = {
-            "user_id": user_id,
-            "user_message": user_msg,
-            "bot_reply": bot_msg,
-            "created_at": get_current_jst_str()
-        }
-        if referrer_id:
-            data["referrer_id"] = referrer_id
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):  # ←ここを復活させる！
+    # 1. まずはLINEから届いたデータを全部変数に入れる
+    user_id = event.source.user_id
+    user_message = event.message.text.strip()
+    reply_token = event.reply_token
 
-        supabase.table("chat_logs_v2_1").insert(data).execute()
-    except Exception as e:
-        print(f"chat_logs_v2_1 insert error: {e}")
-
-@app.post("/callback")
-async def callback(request: Request):
-    signature = request.headers.get("X-Line-Signature", "")
-    body = await request.body()
-    body_str = body.decode("utf-8")
-
-    try:
-        await run_in_threadpool(handler.handle, body_str, signature)
-    except InvalidSignatureError:
-        raise HTTPException(status_code=400, detail="Invalid signature")
-
-    return "OK"
-
-# 2. その後で管理者チェックを行う
+    # 2. 管理者チェック
     if ADMIN_LINE_ID and user_id == ADMIN_LINE_ID:
         try:
             chat_session = model.start_chat(history=[])
@@ -95,12 +73,6 @@ async def callback(request: Request):
         save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text, None)
         line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
         return
-       
-    # ★ここ抜け落ちていたので追加！：紹介者パラメータの抽出
-    referrer_id = None
-    if user_message.startswith("ref:"):
-        referrer_id = user_message.replace("ref:", "").strip()
-        user_message = "こんにちは、草庵にやってきたぞい。"
 
     # 3. ユーザーの履歴と状態をチェック
     remaining_count = get_remaining_count(supabase_client, user_id)
