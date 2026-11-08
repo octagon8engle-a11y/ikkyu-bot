@@ -73,6 +73,27 @@ def handle_message(event):  # ←ここを復活させる！
         save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text, None)
         line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
         return
+    # 2. 管理者チェック
+    if ADMIN_LINE_ID and user_id == ADMIN_LINE_ID:
+        try:
+            chat_session = model.start_chat(history=[])
+            response = chat_session.send_message(user_message)
+            ikkyu_reply_text = response.text
+        except Exception as e:
+            ikkyu_reply_text = f"……おっと、管理者殿、回路がショートしたわい。（エラー: {e}）"
+        
+        save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text, None)
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
+        return
+
+    # ★ここにごっそり抜け落ちているので追加が必要！
+    referrer_id = None
+    if user_message.startswith("ref:"):
+        referrer_id = user_message.replace("ref:", "").strip()
+        user_message = "こんにちは、草庵にやってきたぞい。"
+
+    # 3. ユーザーの履歴と状態をチェック
+    remaining_count = get_remaining_count(supabase_client, user_id)   
 
     # 3. ユーザーの履歴と状態をチェック
     remaining_count = get_remaining_count(supabase_client, user_id)
