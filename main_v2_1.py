@@ -54,8 +54,37 @@ model = genai.GenerativeModel(
     system_instruction=IKKYU_SYSTEM_PROMPT
 )
 
+def save_chat_log_v2_1(supabase, user_id: str, user_msg: str, bot_msg: str, referrer_id: str = None):
+    """chat_logs_v2_1 テーブルへメッセージやり取り・紹介者を記録"""
+    try:
+        data = {
+            "user_id": user_id,
+            "user_message": user_msg,
+            "bot_reply": bot_msg,
+            "created_at": get_current_jst_str()
+        }
+        if referrer_id:
+            data["referrer_id"] = referrer_id
+
+        supabase.table("chat_logs_v2_1").insert(data).execute()
+    except Exception as e:
+        print(f"chat_logs_v2_1 insert error: {e}")
+
+@app.post("/callback")
+async def callback(request: Request):
+    signature = request.headers.get("X-Line-Signature", "")
+    body = await request.body()
+    body_str = body.decode("utf-8")
+
+    try:
+        await run_in_threadpool(handler.handle, body_str, signature)
+    except InvalidSignatureError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    return "OK"
+
 @handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):  # ←ここを復活させる！
+def handle_message(event):
     # 1. まずはLINEから届いたデータを全部変数に入れる
     user_id = event.source.user_id
     user_message = event.message.text.strip()
@@ -73,20 +102,8 @@ def handle_message(event):  # ←ここを復活させる！
         save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text, None)
         line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
         return
-    # 2. 管理者チェック
-    if ADMIN_LINE_ID and user_id == ADMIN_LINE_ID:
-        try:
-            chat_session = model.start_chat(history=[])
-            response = chat_session.send_message(user_message)
-            ikkyu_reply_text = response.text
-        except Exception as e:
-            ikkyu_reply_text = f"……おっと、管理者殿、回路がショートしたわい。（エラー: {e}）"
-        
-        save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text, None)
-        line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
-        return
 
-    # ★ここにごっそり抜け落ちているので追加が必要！
+    # ★ 紹介者パラメータの抽出
     referrer_id = None
     if user_message.startswith("ref:"):
         referrer_id = user_message.replace("ref:", "").strip()
@@ -106,7 +123,7 @@ def handle_message(event):  # ←ここを復活させる！
     gate_status = calculate_gate_status(supabase_client)
     is_gate_full = gate_status["is_gate_full"]
 
-    # 3. ゲートキーパーによるアクセス判定
+    # ゲートキーパーによるアクセス判定
     access_decision = evaluate_user_access(
         has_payment_history=has_payment_history,
         has_referrer=(referrer_id is not None),
