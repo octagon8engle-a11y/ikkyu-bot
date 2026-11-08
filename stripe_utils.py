@@ -19,10 +19,10 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 def get_remaining_count(supabase_client, user_id: str) -> int:
-    """stripe_transactions_test と chat_logs_v2_1 から残り問答数を計算"""
+    """stripe_transactions_v2_1 と chat_logs_v2_1 から残り問答数を計算"""
     try:
         # 1. 決済履歴（およびお試しボーナス履歴）を取得
-        res_tx = supabase_client.table("stripe_transactions_test") \
+        res_tx = supabase_client.table("stripe_transactions_v2_1") \
             .select("amount").eq("user_id", user_id).execute()
         
         total_bought = 0
