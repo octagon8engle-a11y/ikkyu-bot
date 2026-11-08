@@ -1,4 +1,4 @@
-# stripe_utils.py
+# stripe_utils.
 import os
 import stripe
 from fastapi import Request, HTTPException
