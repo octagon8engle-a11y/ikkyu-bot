@@ -6,11 +6,11 @@ def extract_referrer_id(query_params: dict) -> Optional[str]:
     return query_params.get("ref", None)
 
 def register_user_with_referrer(supabase_client, user_id: str, referrer_id: Optional[str] = None):
-    """users_v1_2テーブルにユーザーを登録（すでに存在する場合はスキップ）"""
+    """chat_logs_v2_1テーブルにユーザーを登録（すでに存在する場合はスキップ）"""
     try:
-        existing = supabase_client.table("users_v1_2").select("user_id").eq("user_id", user_id).execute()
+        existing = supabase_client.table("chat_logs_v2_1").select("user_id").eq("user_id", user_id).execute()
         if not existing.data:
-            supabase_client.table("users_v1_2").insert({
+            supabase_client.table("chat_logs_v2_1").insert({
                 "user_id": user_id,
                 "referrer_id": referrer_id
             }).execute()
