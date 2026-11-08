@@ -85,12 +85,12 @@ async def callback(request: Request):
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    # 1. まず先にユーザー情報を取得する
+    # 1. まず先に変数を定義する
     user_id = event.source.user_id
     user_message = event.message.text.strip()
     reply_token = event.reply_token
 
-    # 2. 管理者（ADMIN_LINE_ID）の場合は、すべての制限をスルーして即座に通す
+    # 2. その後で管理者チェックを行う
     if ADMIN_LINE_ID and user_id == ADMIN_LINE_ID:
         try:
             chat_session = model.start_chat(history=[])
@@ -101,7 +101,7 @@ def handle_message(event):
         
         save_chat_log_v2_1(supabase_client, user_id, user_message, ikkyu_reply_text, None)
         line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
-        return  # 管理者はここで処理終了！
+        return
        
     # 2. ユーザーの履歴と状態をチェック
     remaining_count = get_remaining_count(supabase_client, user_id)
