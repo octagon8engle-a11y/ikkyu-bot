@@ -83,14 +83,7 @@ async def callback(request: Request):
 
     return "OK"
 
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    # 1. まず先に変数を定義する
-    user_id = event.source.user_id
-    user_message = event.message.text.strip()
-    reply_token = event.reply_token
-
-    # 2. その後で管理者チェックを行う
+# 2. その後で管理者チェックを行う
     if ADMIN_LINE_ID and user_id == ADMIN_LINE_ID:
         try:
             chat_session = model.start_chat(history=[])
@@ -103,7 +96,13 @@ def handle_message(event):
         line_bot_api.reply_message(reply_token, TextSendMessage(text=ikkyu_reply_text))
         return
        
-    # 2. ユーザーの履歴と状態をチェック
+    # ★ここ抜け落ちていたので追加！：紹介者パラメータの抽出
+    referrer_id = None
+    if user_message.startswith("ref:"):
+        referrer_id = user_message.replace("ref:", "").strip()
+        user_message = "こんにちは、草庵にやってきたぞい。"
+
+    # 3. ユーザーの履歴と状態をチェック
     remaining_count = get_remaining_count(supabase_client, user_id)
     
     # 決済履歴（またはお試しボーナス付与済みか）があるか
