@@ -68,7 +68,7 @@ def verify_and_consume_cipher(supabase_client, user_id: str, input_cipher: str) 
             }).eq("id", cipher_record["id"]).execute()
             
             # ★ここで初めて新規お試し5回分（amount=0）を付与する！
-            supabase_client.table("stripe_transactions_test").insert({
+            supabase_client.table("stripe_transactions_v2_1").insert({
                 "user_id": user_id,
                 "stripe_id": "trial_bonus_5",
                 "amount": 0,
