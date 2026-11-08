@@ -23,6 +23,7 @@ LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+ADMIN_LINE_ID = os.getenv("ADMIN_LINE_ID")
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
@@ -84,9 +85,10 @@ async def callback(request: Request):
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    user_id = event.source.user_id
-    user_message = event.message.text.strip()
-    reply_token = event.reply_token
+    if ADMIN_LINE_ID and user_id == ADMIN_LINE_ID:
+        user_id = event.source.user_id
+        user_message = event.message.text.strip()
+        reply_token = event.reply_token
 
     # 1. 紹介者パラメータの抽出 (例: "ref:U12345...")
     referrer_id = None
