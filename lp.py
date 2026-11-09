@@ -118,7 +118,8 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             line-height: 1.4;
             margin-bottom: 20px;
             letter-spacing: -0.02em;
-            white-space: nowrap;
+            /* 見切れ防止のため強制折り返しを解除し、自然な二行に収める */
+            word-break: auto-phrase;
         }}
         .highlight-boxes {{
             display: grid;
@@ -149,7 +150,6 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             font-size: 1.1rem;
             font-weight: 800;
             color: #34d399;
-            white-space: nowrap;
         }}
         .highlight-free .desc {{
             font-size: 0.84rem;
@@ -174,7 +174,6 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             font-size: 1.05rem;
             font-weight: 800;
             color: #818cf8;
-            white-space: nowrap;
         }}
         .highlight-stripe .desc {{
             font-size: 0.84rem;
@@ -193,7 +192,6 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             border-radius: 14px;
             box-shadow: 0 6px 16px rgba(6, 199, 85, 0.25);
             transition: transform 0.15s ease;
-            white-space: nowrap;
         }}
         .cta-btn:active {{
             transform: scale(0.98);
@@ -248,7 +246,6 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             display: flex;
             align-items: center;
             gap: 6px;
-            white-space: nowrap;
         }}
         .menu-tag {{
             font-size: 0.7rem;
@@ -343,7 +340,7 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
 
         <section class="hero">
             <div class="reel-tag">📱 インスタのリールで話題のAI一休さん</div>
-            <h1>あのチャットが、ついにあなたも体験できる！</h1>
+            <h1>あのチャットが、<br>ついにあなたも体験できる！</h1>
 
             <div class="highlight-boxes">
                 <div class="highlight-card highlight-free">
