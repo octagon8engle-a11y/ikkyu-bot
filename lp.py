@@ -236,8 +236,8 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         .menu-item {{
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
-            padding: 10px 0;
+            align-items: center;
+            padding: 11px 0;
             border-bottom: 1px dashed #f3f4f6;
             font-size: 0.92rem;
         }}
@@ -247,20 +247,46 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         }}
         .menu-name {{
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .menu-tag {{
+            font-size: 0.7rem;
+            font-weight: 700;
+            background: var(--accent-light);
+            color: var(--accent);
+            padding: 1px 6px;
+            border-radius: 4px;
         }}
         .menu-sub {{
             font-size: 0.8rem;
             color: var(--muted);
+            margin-top: 2px;
         }}
         .menu-price {{
             font-weight: 800;
+            font-size: 1.02rem;
             color: var(--accent);
             white-space: nowrap;
             margin-left: 12px;
-        }}
-        .stripe-link-wrap {{
-            margin-top: 12px;
             text-align: right;
+        }}
+        .menu-price small {{
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: var(--muted);
+        }}
+        .stripe-note {{
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #f3f4f6;
+            font-size: 0.78rem;
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }}
         .stripe-link {{
             font-size: 0.82rem;
@@ -330,7 +356,7 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
                 <div class="highlight-card highlight-stripe">
                     <span class="badge">世界基準の決済システム</span>
                     <div class="title">追加の問答も Stripe 決済で安心・安全</div>
-                    <div class="desc">もっと話したい時も、クレジットカード情報がボット側に残らない安全決済です。</div>
+                    <div class="desc">5回550円〜の都度払い。カード情報がボット側に残らない安全決済です。</div>
                 </div>
             </div>
 
@@ -343,25 +369,49 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             </div>
         </section>
 
-        <!-- お品書き（そこそこの大きさ） -->
+        <!-- お品書き（そこそこの大きさ・550円 / 990円を明記） -->
         <section class="menu-section" id="oshinagaki">
             <h2>🍶 お品書き（料金案内）</h2>
+
             <div class="menu-item">
                 <div>
                     <div class="menu-name">初回お試し問答（5回分）</div>
                     <div class="menu-sub">LINE登録後すぐに使えます</div>
                 </div>
-                <div class="menu-price">0円（無料）</div>
+                <div class="menu-price">
+                    0円
+                    <small>完全無料</small>
+                </div>
             </div>
+
             <div class="menu-item">
                 <div>
-                    <div class="menu-name">追加お布施（問答回数チャージ）</div>
-                    <div class="menu-sub">Stripeによる都度決済・サブスクなし</div>
+                    <div class="menu-name">追加お布施・竹（5回分）</div>
+                    <div class="menu-sub">1回あたり110円・都度チャージ</div>
                 </div>
-                <div class="menu-price">都度チャージ制</div>
+                <div class="menu-price">
+                    550円
+                    <small>税込・都度払い</small>
+                </div>
             </div>
-            <div class="stripe-link-wrap">
-                <a href="{html.escape(stripe_url)}" class="stripe-link">Stripe決済ページを確認する →</a>
+
+            <div class="menu-item">
+                <div>
+                    <div class="menu-name">
+                        追加お布施・松（10回分）
+                        <span class="menu-tag">お得</span>
+                    </div>
+                    <div class="menu-sub">1回あたり99円・たっぷり問答したい方に</div>
+                </div>
+                <div class="menu-price">
+                    990円
+                    <small>税込・都度払い</small>
+                </div>
+            </div>
+
+            <div class="stripe-note">
+                <span>※自動更新（サブスク）なし</span>
+                <a href="{html.escape(stripe_url)}" class="stripe-link">Stripe決済ページを見る →</a>
             </div>
         </section>
 
