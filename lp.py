@@ -1,299 +1,378 @@
 # lp.py
 import os
+import html
 
-STRIPE_LINK_5 = os.getenv("STRIPE_LINK_5", "#")
-STRIPE_LINK_10 = os.getenv("STRIPE_LINK_10", "#")
-LINE_BOT_URL = os.getenv("LINE_BOT_URL", "https://line.me/R/ti/p/@YOUR_LINE_BOT_ID")
 
-def render_lp(gate_status: dict, ref: str = "") -> str:
-    """
-    USJ式ゲートステータスを受け取り、破戒僧の世界観を反映したLPのHTMLを動的に生成する
-    """
-    fastpass_count = gate_status.get("fastpass_today", 0)
-    free_passed_count = gate_status.get("free_today", 0)
-    free_remaining = gate_status.get("free_remaining", 0)
-    is_gate_full = gate_status.get("is_gate_full", True)
+def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
+    status = status or {}
+    safe_ref = html.escape(ref.strip()) if ref else ""
 
-    # 残り枠に応じた一般スタンバイのステータス文言・色の切り替え（破戒僧フレーズ連動）
-    if not is_gate_full and free_remaining > 0:
-        free_status_text = f"受付中（本日残り {free_remaining} 枠）"
-        free_status_color = "#f59e0b" # 警告オレンジ
+    # 環境変数からLINE友だち追加URL・Stripeリンクを取得（未設定時のフォールバック付き）
+    line_url = (
+        kwargs.get("line_url")
+        or os.getenv("LINE_ADD_FRIEND_URL")
+        or os.getenv("LINE_FRIEND_URL")
+        or "https://line.me/R/"
+    )
+    stripe_url = (
+        kwargs.get("stripe_url")
+        or os.getenv("STRIPE_PAYMENT_LINK")
+        or os.getenv("STRIPE_URL")
+        or "#oshinagaki"
+    )
+
+    # ゲート状況（下部のLIVE表示用）
+    is_open = status.get("is_open", True)
+    remaining = status.get("remaining", status.get("available_slots", None))
+    gate_msg = status.get("message", "")
+
+    if not is_open:
+        live_badge_color = "#e11d48"
+        live_status_text = gate_msg or "現在満員（留守中）・ファストパス枠のみ案内中"
     else:
-        free_status_text = "🚪 本日は町へ酒と肉の修行につき留守（門前払い）"
-        free_status_color = "#ef4444" # 終了レッド
+        live_badge_color = "#10b981"
+        if remaining is not None:
+            live_status_text = gate_msg or f"現在入庵可能（本日の無料案内枠 残り {remaining} 名）"
+        else:
+            live_status_text = gate_msg or "現在入庵可能（通常案内中）"
 
-    # 紹介者パラメータ(ref)の処理
-    ref_param = f"&text=ref:{ref}" if ref else ""
-    line_url = f"{LINE_BOT_URL}{ref_param}"
+    live_status_text = html.escape(str(live_status_text))
 
-    html_content = f"""<!DOCTYPE html>
+    # 紹介リンク経由で来た場合のさりげない表示（詳細は伏せる）
+    ref_banner_html = ""
+    if safe_ref:
+        ref_banner_html = f"""
+        <div class="ref-notice">
+            ✨ 特別なお導き（紹介コード: <span>{safe_ref}</span>）経由でアクセス中
+        </div>
+        """
+
+    return f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI一休さん - 現代の草庵</title>
+    <title>AI一休さん｜あのチャットがついにあなたも体験できる！</title>
     <style>
         :root {{
-            --bg-color: #0f141c;
-            --card-bg: #1a2230;
-            --accent-gold: #d4af37;
-            --fastpass-glow: #ffd700;
-            --text-main: #f0f4f8;
-            --text-sub: #94a3b8;
-            --border-color: #2a364d;
+            --bg: #faf8f5;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --accent: #b45309;
+            --accent-light: #fef3c7;
+            --line-green: #06c755;
+            --stripe-blue: #635bff;
+            --border: #e5e7eb;
         }}
         * {{
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }}
         body {{
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            line-height: 1.6;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.65;
+            padding: 20px 16px 48px;
         }}
         .container {{
-            width: 100%;
-            max-width: 480px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 28px 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            max-width: 520px;
+            margin: 0 auto;
+        }}
+        .ref-notice {{
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+            font-size: 0.82rem;
+            font-weight: 600;
             text-align: center;
+            padding: 8px 12px;
+            border-radius: 999px;
+            margin-bottom: 16px;
         }}
-        h1 {{
-            font-size: 1.5rem;
-            margin-bottom: 8px;
-            color: var(--text-main);
-            letter-spacing: 0.05em;
+        .ref-notice span {{
+            font-family: monospace;
         }}
-        .subtitle {{
-            color: var(--text-sub);
-            font-size: 0.9rem;
-            margin-bottom: 20px;
+        /* ファーストビュー：一番大きく */
+        .hero {{
+            background: var(--card);
+            border-radius: 20px;
+            padding: 28px 22px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+            text-align: center;
+            margin-bottom: 24px;
         }}
-        
-        /* USJ風 リアルタイム・ゲート表示ボード */
-        .gate-board {{
-            background: #0a0e14;
-            border: 1px solid #334155;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-            text-align: left;
-            box-shadow: inset 0 2px 10px rgba(0,0,0,0.6);
-        }}
-        .gate-header {{
-            font-size: 0.8rem;
-            color: var(--text-sub);
-            letter-spacing: 0.08em;
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #1e293b;
-            padding-bottom: 8px;
-        }}
-        .live-dot {{
+        .reel-tag {{
             display: inline-block;
-            width: 8px;
-            height: 8px;
-            background-color: #10b981;
-            border-radius: 50%;
-            margin-right: 6px;
-            box-shadow: 0 0 8px #10b981;
+            background: var(--accent-light);
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 999px;
+            margin-bottom: 12px;
         }}
-        .lane-card {{
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
+        .hero h1 {{
+            font-size: 1.55rem;
+            font-weight: 800;
+            line-height: 1.35;
+            margin-bottom: 20px;
+            letter-spacing: -0.02em;
         }}
-        .lane-card:last-child {{
-            margin-bottom: 0;
+        .highlight-boxes {{
+            display: grid;
+            gap: 12px;
+            margin-bottom: 22px;
+            text-align: left;
         }}
-        /* ファストパスレーン（VIP仕様） */
-        .lane-fastpass {{
-            background: linear-gradient(135deg, rgba(212, 175, 55, 0.18), rgba(212, 175, 55, 0.05));
-            border: 1px solid rgba(212, 175, 55, 0.6);
+        .highlight-card {{
+            border-radius: 14px;
+            padding: 16px 18px;
+            border: 2px solid transparent;
         }}
-        .lane-title-fp {{
-            color: var(--fastpass-glow);
-            font-weight: bold;
-            font-size: 0.92rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .highlight-free {{
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }}
+        .highlight-free .badge {{
+            display: inline-block;
+            background: #059669;
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
             margin-bottom: 4px;
         }}
-        .badge-instant {{
-            background: var(--accent-gold);
-            color: #000;
+        .highlight-free .title {{
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #065f46;
+        }}
+        .highlight-free .desc {{
+            font-size: 0.88rem;
+            color: #047857;
+            margin-top: 2px;
+        }}
+        .highlight-stripe {{
+            background: #eef2ff;
+            border-color: #c7d2fe;
+        }}
+        .highlight-stripe .badge {{
+            display: inline-block;
+            background: var(--stripe-blue);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin-bottom: 4px;
+        }}
+        .highlight-stripe .title {{
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #3730a3;
+        }}
+        .highlight-stripe .desc {{
+            font-size: 0.86rem;
+            color: #4338ca;
+            margin-top: 2px;
+        }}
+        .cta-btn {{
+            display: block;
+            width: 100%;
+            background: var(--line-green);
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 1.1rem;
+            font-weight: 800;
+            padding: 16px 20px;
+            border-radius: 14px;
+            box-shadow: 0 6px 16px rgba(6, 199, 85, 0.28);
+            transition: transform 0.15s ease;
+        }}
+        .cta-btn:active {{
+            transform: scale(0.98);
+        }}
+        /* 特典フック：詳細は伏せてふんわり乗っける */
+        .referral-hint {{
+            margin-top: 16px;
+            background: #fffbeb;
+            border: 1px dashed #f59e0b;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #92400e;
+        }}
+        .referral-hint span {{
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: #b45309;
+            margin-top: 2px;
+        }}
+        /* お品書き：そこそこの大きさ */
+        .menu-section {{
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+        }}
+        .menu-section h2 {{
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .menu-item {{
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 10px 0;
+            border-bottom: 1px dashed #f3f4f6;
+            font-size: 0.92rem;
+        }}
+        .menu-item:last-child {{
+            border-bottom: none;
+            padding-bottom: 0;
+        }}
+        .menu-name {{
+            font-weight: 700;
+        }}
+        .menu-sub {{
+            font-size: 0.8rem;
+            color: var(--muted);
+        }}
+        .menu-price {{
+            font-weight: 800;
+            color: var(--accent);
+            white-space: nowrap;
+            margin-left: 12px;
+        }}
+        .stripe-link-wrap {{
+            margin-top: 12px;
+            text-align: right;
+        }}
+        .stripe-link {{
+            font-size: 0.82rem;
+            color: var(--stripe-blue);
+            font-weight: 700;
+            text-decoration: none;
+        }}
+        /* USJ方式LIVE：下の方に控えめに */
+        .live-footer {{
+            background: #f3f4f6;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }}
+        .live-left {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .live-pill {{
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #111827;
+            color: #ffffff;
             font-size: 0.7rem;
             font-weight: 800;
-            padding: 2px 6px;
-            border-radius: 4px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            letter-spacing: 0.05em;
+            flex-shrink: 0;
         }}
-        /* 一般スタンバイレーン */
-        .lane-general {{
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid #2a364d;
+        .live-dot {{
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background-color: {live_badge_color};
         }}
-        .lane-title-gen {{
-            color: #cbd5e1;
-            font-weight: bold;
-            font-size: 0.88rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }}
-        .lane-stats {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-            color: var(--text-sub);
-            margin-top: 6px;
-        }}
-        .lane-stats strong {{
-            color: var(--text-main);
-            font-size: 0.9rem;
-        }}
-
-        /* セクション・価格ボックス */
-        .section-box {{
-            background: rgba(15, 20, 28, 0.6);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 16px;
-            text-align: left;
-        }}
-        .section-box h3 {{
-            color: var(--accent-gold);
-            font-size: 0.92rem;
-            margin-bottom: 8px;
-        }}
-        .price-grid {{
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-        }}
-        .price-card {{
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 10px;
-            text-align: center;
-        }}
-        .price-card .num {{
-            font-size: 1.1rem;
-            font-weight: bold;
-            color: var(--accent-gold);
-        }}
-        .price-card .label {{
-            font-size: 0.72rem;
-            color: var(--text-sub);
-        }}
-        .btn-line {{
-            display: block;
-            width: 100%;
-            background-color: #06c755;
-            color: white;
-            text-align: center;
-            padding: 14px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 1.02rem;
-            text-decoration: none;
-            box-shadow: 0 4px 12px rgba(6, 199, 85, 0.3);
-            margin-bottom: 14px;
-        }}
-        .btn-fp {{
-            display: block;
-            width: 100%;
-            background: linear-gradient(135deg, #d4af37, #b5952f);
-            color: #0f141c;
-            text-align: center;
-            padding: 10px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 0.9rem;
-            text-decoration: none;
-            margin-top: 8px;
-        }}
-        .stripe-badge {{
-            font-size: 0.75rem;
-            color: var(--text-sub);
-            margin-top: 10px;
-        }}
-        .stripe-badge span {{
-            color: #635bff;
-            font-weight: bold;
+        .live-text {{
+            font-size: 0.78rem;
+            color: #4b5563;
+            line-height: 1.4;
         }}
     </style>
 </head>
 <body>
     <div class="container">
-        <div style="color: var(--accent-gold); font-size: 0.8rem; margin-bottom: 6px;">🍶 現代の草庵・問答所</div>
-        <h1>AI一休の草庵</h1>
-        <p class="subtitle">煩悩まみれの世迷い言、トンチの和尚がズバッと断ち切るわい。</p>
-        
-        <!-- USJ式 リアルタイム・ゲート表示ボード -->
-        <div class="gate-board">
-            <div class="gate-header">
-                <span><span class="live-dot"></span>本日の草庵 受付状況</span>
-                <span>LIVE</span>
-            </div>
-            
-            <!-- ファストパスレーン -->
-            <div class="lane-card lane-fastpass">
-                <div class="lane-title-fp">
-                    <span>⚡ ファストパス（お布施優先）</span>
-                    <span class="badge-instant">待ち時間 0分</span>
+        {ref_banner_html}
+
+        <!-- メイン看板（一番大きく） -->
+        <section class="hero">
+            <div class="reel-tag">📱 インスタのリールで話題のAI一休さん</div>
+            <h1>あのチャットが、<br>ついにあなたも体験できる！</h1>
+
+            <div class="highlight-boxes">
+                <div class="highlight-card highlight-free">
+                    <span class="badge">まずは気軽に</span>
+                    <div class="title">初回5回まで完全無料でお試し！</div>
+                    <div class="desc">LINEを追加するだけですぐに問答スタート。自動課金は一切ありません。</div>
                 </div>
-                <div class="lane-stats">
-                    <span>状態：<strong>裏口から即時案内中</strong></span>
-                    <span>本日通過：<strong>{fastpass_count} 名</strong></span>
+
+                <div class="highlight-card highlight-stripe">
+                    <span class="badge">世界基準の決済システム</span>
+                    <div class="title">追加の問答も Stripe 決済で安心・安全</div>
+                    <div class="desc">もっと話したい時も、クレジットカード情報がボット側に残らない安全決済です。</div>
                 </div>
             </div>
 
-            <!-- 一般スタンバイレーン -->
-            <div class="lane-card lane-general">
-                <div class="lane-title-gen">
-                    <span>🐢 一般スタンバイ（無料お試し）</span>
-                </div>
-                <div class="lane-stats">
-                    <span style="color: {free_status_color}; font-weight: bold; font-size: 0.78rem;">{free_status_text}</span>
-                    <span>本日通過：<strong>{free_passed_count} 名</strong></span>
-                </div>
+            <a href="{html.escape(line_url)}" class="cta-btn">LINEで今すぐ無料お試し（5回分）</a>
+
+            <!-- 特典の匂わせ（詳細は書かない） -->
+            <div class="referral-hint">
+                🎁 友達にLINEで紹介すると、いいこと（特典）あるかも…？
+                <span>※気まぐれな一休さんのご縁次第です</span>
             </div>
-        </div>
+        </section>
 
-        <a href="{line_url}" class="btn-line">一般スタンバイで門を叩く</a>
+        <!-- お品書き（そこそこの大きさ） -->
+        <section class="menu-section" id="oshinagaki">
+            <h2>🍶 お品書き（料金案内）</h2>
+            <div class="menu-item">
+                <div>
+                    <div class="menu-name">初回お試し問答（5回分）</div>
+                    <div class="menu-sub">LINE登録後すぐに使えます</div>
+                </div>
+                <div class="menu-price">0円（無料）</div>
+            </div>
+            <div class="menu-item">
+                <div>
+                    <div class="menu-name">追加お布施（問答回数チャージ）</div>
+                    <div class="menu-sub">Stripeによる都度決済・サブスクなし</div>
+                </div>
+                <div class="menu-price">都度チャージ制</div>
+            </div>
+            <div class="stripe-link-wrap">
+                <a href="{html.escape(stripe_url)}" class="stripe-link">Stripe決済ページを確認する →</a>
+            </div>
+        </section>
 
-        <!-- ファストパス（お布施チケット） -->
-        <div class="section-box" style="border-left: 4px solid var(--accent-gold);">
-            <h3>⚡ ファストパス（お布施・優先入場）</h3>
-            <p style="font-size: 0.8rem; color: var(--text-sub); margin-bottom: 10px;">
-                留守札を無視して、酒代（お布施）を積んで酔っ払った和尚を裏口から叩き起こす！
-            </p>
-            <a href="{STRIPE_LINK_5}" class="btn-fp">5回券（550円）で優先入場する</a>
-            <a href="{STRIPE_LINK_10}" class="btn-fp">10回券（990円）で優先入場する</a>
-        </div>
-        
-        <div class="stripe-badge">
-            🔒 安全な <span>Stripe</span> 決済（クレカ / Apple Pay / Google Pay）
-        </div>
+        <!-- USJ方式：下の方にLIVEとして控えめに配置 -->
+        <footer class="live-footer">
+            <div class="live-left">
+                <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+                <span class="live-text">{live_status_text}</span>
+            </div>
+        </footer>
     </div>
 </body>
-</html>"""
-    return html_content
+</html>
+"""
