@@ -7,7 +7,6 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
     status = status or {}
     safe_ref = html.escape(ref.strip()) if ref else ""
 
-    # 環境変数からLINE友だち追加URL・Stripeリンクを取得（未設定時のフォールバック付き）
     line_url = (
         kwargs.get("line_url")
         or os.getenv("LINE_ADD_FRIEND_URL")
@@ -21,7 +20,6 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         or "#oshinagaki"
     )
 
-    # ゲート状況（下部のLIVE表示用）
     is_open = status.get("is_open", True)
     remaining = status.get("remaining", status.get("available_slots", None))
     gate_msg = status.get("message", "")
@@ -38,7 +36,6 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
 
     live_status_text = html.escape(str(live_status_text))
 
-    # 紹介リンク経由で来た場合のさりげない表示（詳細は伏せる）
     ref_banner_html = ""
     if safe_ref:
         ref_banner_html = f"""
@@ -55,15 +52,15 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
     <title>AI一休さん｜あのチャットがついにあなたも体験できる！</title>
     <style>
         :root {{
-            --bg: #faf8f5;
-            --card: #ffffff;
-            --text: #1f2937;
-            --muted: #6b7280;
-            --accent: #b45309;
-            --accent-light: #fef3c7;
+            --bg: #121214;
+            --card: #1e1e24;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --accent: #d97706;
+            --accent-light: rgba(217, 119, 6, 0.15);
             --line-green: #06c755;
             --stripe-blue: #635bff;
-            --border: #e5e7eb;
+            --border: #2e2e38;
         }}
         * {{
             box-sizing: border-box;
@@ -82,9 +79,9 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             margin: 0 auto;
         }}
         .ref-notice {{
-            background: #fffbeb;
-            border: 1px solid #fcd34d;
-            color: #92400e;
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid #f59e0b;
+            color: #fbbf24;
             font-size: 0.82rem;
             font-weight: 600;
             text-align: center;
@@ -95,12 +92,11 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         .ref-notice span {{
             font-family: monospace;
         }}
-        /* ファーストビュー：一番大きく */
         .hero {{
             background: var(--card);
             border-radius: 20px;
-            padding: 28px 22px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            padding: 28px 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border);
             text-align: center;
             margin-bottom: 24px;
@@ -109,18 +105,20 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             display: inline-block;
             background: var(--accent-light);
             color: var(--accent);
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 700;
             padding: 4px 12px;
             border-radius: 999px;
             margin-bottom: 12px;
+            white-space: nowrap;
         }}
         .hero h1 {{
-            font-size: 1.55rem;
+            font-size: 1.35rem;
             font-weight: 800;
-            line-height: 1.35;
+            line-height: 1.4;
             margin-bottom: 20px;
             letter-spacing: -0.02em;
+            white-space: nowrap;
         }}
         .highlight-boxes {{
             display: grid;
@@ -131,54 +129,56 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         .highlight-card {{
             border-radius: 14px;
             padding: 16px 18px;
-            border: 2px solid transparent;
+            border: 1px solid var(--border);
         }}
         .highlight-free {{
-            background: #ecfdf5;
-            border-color: #a7f3d0;
+            background: rgba(5, 150, 105, 0.1);
+            border-color: rgba(5, 150, 105, 0.3);
         }}
         .highlight-free .badge {{
             display: inline-block;
             background: #059669;
             color: #fff;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             font-weight: 700;
             padding: 2px 8px;
             border-radius: 6px;
             margin-bottom: 4px;
         }}
         .highlight-free .title {{
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             font-weight: 800;
-            color: #065f46;
+            color: #34d399;
+            white-space: nowrap;
         }}
         .highlight-free .desc {{
-            font-size: 0.88rem;
-            color: #047857;
+            font-size: 0.84rem;
+            color: #9ca3af;
             margin-top: 2px;
         }}
         .highlight-stripe {{
-            background: #eef2ff;
-            border-color: #c7d2fe;
+            background: rgba(99, 91, 255, 0.1);
+            border-color: rgba(99, 91, 255, 0.3);
         }}
         .highlight-stripe .badge {{
             display: inline-block;
             background: var(--stripe-blue);
             color: #fff;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             font-weight: 700;
             padding: 2px 8px;
             border-radius: 6px;
             margin-bottom: 4px;
         }}
         .highlight-stripe .title {{
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             font-weight: 800;
-            color: #3730a3;
+            color: #818cf8;
+            white-space: nowrap;
         }}
         .highlight-stripe .desc {{
-            font-size: 0.86rem;
-            color: #4338ca;
+            font-size: 0.84rem;
+            color: #9ca3af;
             margin-top: 2px;
         }}
         .cta-btn {{
@@ -187,35 +187,34 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             background: var(--line-green);
             color: #ffffff;
             text-decoration: none;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: 800;
             padding: 16px 20px;
             border-radius: 14px;
-            box-shadow: 0 6px 16px rgba(6, 199, 85, 0.28);
+            box-shadow: 0 6px 16px rgba(6, 199, 85, 0.25);
             transition: transform 0.15s ease;
+            white-space: nowrap;
         }}
         .cta-btn:active {{
             transform: scale(0.98);
         }}
-        /* 特典フック：詳細は伏せてふんわり乗っける */
         .referral-hint {{
             margin-top: 16px;
-            background: #fffbeb;
-            border: 1px dashed #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px dashed rgba(245, 158, 11, 0.4);
             border-radius: 12px;
             padding: 12px 14px;
-            font-size: 0.92rem;
+            font-size: 0.88rem;
             font-weight: 700;
-            color: #92400e;
+            color: #fbbf24;
         }}
         .referral-hint span {{
             display: block;
-            font-size: 0.78rem;
+            font-size: 0.76rem;
             font-weight: 500;
-            color: #b45309;
+            color: var(--muted);
             margin-top: 2px;
         }}
-        /* お品書き：そこそこの大きさ */
         .menu-section {{
             background: var(--card);
             border-radius: 16px;
@@ -229,17 +228,15 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             margin-bottom: 12px;
             padding-bottom: 8px;
             border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            color: var(--text);
         }}
         .menu-item {{
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 11px 0;
-            border-bottom: 1px dashed #f3f4f6;
-            font-size: 0.92rem;
+            border-bottom: 1px dashed var(--border);
+            font-size: 0.9rem;
         }}
         .menu-item:last-child {{
             border-bottom: none;
@@ -247,9 +244,11 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         }}
         .menu-name {{
             font-weight: 700;
+            color: var(--text);
             display: flex;
             align-items: center;
             gap: 6px;
+            white-space: nowrap;
         }}
         .menu-tag {{
             font-size: 0.7rem;
@@ -260,13 +259,13 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             border-radius: 4px;
         }}
         .menu-sub {{
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             color: var(--muted);
             margin-top: 2px;
         }}
         .menu-price {{
             font-weight: 800;
-            font-size: 1.02rem;
+            font-size: 1rem;
             color: var(--accent);
             white-space: nowrap;
             margin-left: 12px;
@@ -274,14 +273,14 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         }}
         .menu-price small {{
             display: block;
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             font-weight: 500;
             color: var(--muted);
         }}
         .stripe-note {{
             margin-top: 12px;
             padding-top: 10px;
-            border-top: 1px solid #f3f4f6;
+            border-top: 1px solid var(--border);
             font-size: 0.78rem;
             color: var(--muted);
             display: flex;
@@ -290,13 +289,13 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         }}
         .stripe-link {{
             font-size: 0.82rem;
-            color: var(--stripe-blue);
+            color: #818cf8;
             font-weight: 700;
             text-decoration: none;
         }}
-        /* USJ方式LIVE：下の方に控えめに */
         .live-footer {{
-            background: #f3f4f6;
+            background: var(--card);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 12px 14px;
             font-size: 0.8rem;
@@ -323,6 +322,7 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             border-radius: 999px;
             letter-spacing: 0.05em;
             flex-shrink: 0;
+            border: 1px solid var(--border);
         }}
         .live-dot {{
             width: 7px;
@@ -332,7 +332,7 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
         }}
         .live-text {{
             font-size: 0.78rem;
-            color: #4b5563;
+            color: var(--muted);
             line-height: 1.4;
         }}
     </style>
@@ -341,42 +341,39 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
     <div class="container">
         {ref_banner_html}
 
-        <!-- メイン看板（一番大きく） -->
         <section class="hero">
             <div class="reel-tag">📱 インスタのリールで話題のAI一休さん</div>
-            <h1>あのチャットが、<br>ついにあなたも体験できる！</h1>
+            <h1>あのチャットが、ついにあなたも体験できる！</h1>
 
             <div class="highlight-boxes">
                 <div class="highlight-card highlight-free">
                     <span class="badge">まずは気軽に</span>
                     <div class="title">初回5回まで完全無料でお試し！</div>
-                    <div class="desc">LINEを追加するだけですぐに問答スタート。自動課金は一切ありません。</div>
+                    <div class="desc">LINEを追加するだけですぐに問答スタート。自動課金はありません。</div>
                 </div>
 
                 <div class="highlight-card highlight-stripe">
                     <span class="badge">世界基準の決済システム</span>
                     <div class="title">追加の問答も Stripe 決済で安心・安全</div>
-                    <div class="desc">5回550円〜の都度払い。カード情報がボット側に残らない安全決済です。</div>
+                    <div class="desc">5回550円〜の都度払い。カード情報がボット側に残りません。</div>
                 </div>
             </div>
 
             <a href="{html.escape(line_url)}" class="cta-btn">LINEで今すぐ無料お試し（5回分）</a>
 
-            <!-- 特典の匂わせ（詳細は書かない） -->
             <div class="referral-hint">
                 🎁 友達にLINEで紹介すると、いいこと（特典）あるかも…？
                 <span>※気まぐれな一休さんのご縁次第です</span>
             </div>
         </section>
 
-        <!-- お品書き（そこそこの大きさ・550円 / 990円を明記） -->
         <section class="menu-section" id="oshinagaki">
             <h2>🍶 お品書き（料金案内）</h2>
 
             <div class="menu-item">
                 <div>
                     <div class="menu-name">初回お試し問答（5回分）</div>
-                    <div class="menu-sub">LINE登録後すぐに使えます</div>
+                    <div class="menu-sub">LINE登録後すぐ使えます</div>
                 </div>
                 <div class="menu-price">
                     0円
@@ -401,7 +398,7 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
                         追加お布施・松（10回分）
                         <span class="menu-tag">お得</span>
                     </div>
-                    <div class="menu-sub">1回あたり99円・たっぷり問答したい方に</div>
+                    <div class="menu-sub">1回あたり99円・たっぷり問答</div>
                 </div>
                 <div class="menu-price">
                     990円
@@ -415,7 +412,6 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             </div>
         </section>
 
-        <!-- USJ方式：下の方にLIVEとして控えめに配置 -->
         <footer class="live-footer">
             <div class="live-left">
                 <span class="live-pill"><span class="live-dot"></span>LIVE</span>
