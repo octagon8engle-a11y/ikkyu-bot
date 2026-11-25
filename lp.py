@@ -221,7 +221,8 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
             <div class="reel-tag">🍶 破戒僧・一休宗純の草庵</div>
             <h1>煩悩も理屈も、<br>まずは一休にぶつけてみなされ。</h1>
             <p class="lead">
-                説教くさい正解はなし。酒と肉と毒とユーモアで、<br>
+                説教くさい正解はなし。酒と肉と毒<br>
+                とユーモアで、<br>
                 絡まった頭と心をスッとほぐす問答チャット。
             </p>
 
@@ -231,7 +232,7 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
                 <p>・まずは5回分、気軽に草庵を覗いてみる</p>
             </div>
 
-            <a href="{html.escape(line_url)}" class="cta-btn">LINEで一休さんと問答する（無料5回）</a>
+            <a href="{html.escape(line_url)}" class="cta-btn">LINEで一休さんと問答する<span class="nowrap">（無料5回）</span></a>
             <div class="sub-note">友だち追加後すぐに5回分お試しいただけます</div>
 
             <div class="referral-hint">
