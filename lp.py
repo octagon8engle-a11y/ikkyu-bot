@@ -232,7 +232,7 @@ def render_lp(status: dict = None, ref: str = "", **kwargs) -> str:
                 <p>・まずは5回分、気軽に草庵を覗いてみる</p>
             </div>
 
-            <a href="{html.escape(line_url)}" class="cta-btn">LINEで一休さんと問答する<span class="nowrap">（無料5回）</span></a>
+            <a href="{html.escape(line_url)}" class="cta-btn">LINEで一休さんと問答する<br>（無料5回）</a>
             <div class="sub-note">友だち追加後すぐに5回分お試しいただけます</div>
 
             <div class="referral-hint">
